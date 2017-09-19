@@ -1,11 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
-#if NET_45
-using System.Collections.ObjectModel;
-#endif
-using System.Threading.Tasks;
 using System.Net;
+using System.Threading.Tasks;
+using System.Collections.ObjectModel;
 
 namespace Octokit
 {

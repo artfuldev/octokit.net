@@ -10,6 +10,8 @@ namespace Octokit
     [DebuggerDisplay("{DebuggerDisplay,nq}")]
     public class PunchCard
     {
+        public PunchCard() { }
+
         public PunchCard(IEnumerable<IList<int>> punchCardData)
         {
             Ensure.ArgumentNotNull(punchCardData, "punchCardData");
@@ -39,7 +41,7 @@ namespace Octokit
         {
             get
             {
-                return String.Format(CultureInfo.InvariantCulture,
+                return string.Format(CultureInfo.InvariantCulture,
                     "Punch Card Points: {0}", PunchPoints.Count);
             }
         }

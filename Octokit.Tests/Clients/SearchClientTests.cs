@@ -12,7 +12,7 @@ namespace Octokit.Tests.Clients
     /// </summary>
     public class SearchClientTests
     {
-        public class TheConstructor
+        public class TheCtor
         {
             [Fact]
             public void EnsuresNonNullArguments()
@@ -57,7 +57,7 @@ namespace Octokit.Tests.Clients
                 var connection = Substitute.For<IApiConnection>();
                 var client = new SearchClient(connection);
                 var request = new SearchUsersRequest("github");
-                request.AccountType = AccountType.User;
+                request.AccountType = AccountSearchType.User;
                 client.SearchUsers(request);
                 connection.Received().Get<SearchUsersResult>(
                     Arg.Is<Uri>(u => u.ToString() == "search/users"),
@@ -70,7 +70,7 @@ namespace Octokit.Tests.Clients
                 var connection = Substitute.For<IApiConnection>();
                 var client = new SearchClient(connection);
                 var request = new SearchUsersRequest("github");
-                request.AccountType = AccountType.Org;
+                request.AccountType = AccountSearchType.Org;
                 client.SearchUsers(request);
                 connection.Received().Get<SearchUsersResult>(
                     Arg.Is<Uri>(u => u.ToString() == "search/users"),
@@ -262,6 +262,19 @@ namespace Octokit.Tests.Clients
             }
 
             [Fact]
+            public void TestingTheCreatedQualifier_Between()
+            {
+                var connection = Substitute.For<IApiConnection>();
+                var client = new SearchClient(connection);
+                var request = new SearchUsersRequest("github");
+                request.Created = DateRange.Between(new DateTime(2014, 1, 1), new DateTime(2014, 2, 1));
+                client.SearchUsers(request);
+                connection.Received().Get<SearchUsersResult>(
+                    Arg.Is<Uri>(u => u.ToString() == "search/users"),
+                    Arg.Is<Dictionary<string, string>>(d => d["q"] == "github+created:2014-01-01..2014-02-01"));
+            }
+
+            [Fact]
             public void TestingTheFollowersQualifier_GreaterThan()
             {
                 var connection = Substitute.For<IApiConnection>();
@@ -335,7 +348,7 @@ namespace Octokit.Tests.Clients
                 var connection = Substitute.For<IApiConnection>();
                 var client = new SearchClient(connection);
                 client.SearchRepo(new SearchRepositoriesRequest("something"));
-                connection.Received().Get<SearchRepositoryResult>(Arg.Is<Uri>(u => u.ToString() == "search/repositories"), 
+                connection.Received().Get<SearchRepositoryResult>(Arg.Is<Uri>(u => u.ToString() == "search/repositories"),
                     Arg.Any<Dictionary<string, string>>());
             }
 
@@ -364,7 +377,7 @@ namespace Octokit.Tests.Clients
             {
                 var connection = Substitute.For<IApiConnection>();
                 var client = new SearchClient(connection);
-                //get repos whos stargazers are greater than 500
+                //get repos who's stargazers are greater than 500
                 var request = new SearchRepositoriesRequest("github");
                 request.Stars = Range.GreaterThan(500);
                 client.SearchRepo(request);
@@ -378,7 +391,7 @@ namespace Octokit.Tests.Clients
             {
                 var connection = Substitute.For<IApiConnection>();
                 var client = new SearchClient(connection);
-                //get repos whos stargazers are less than 500
+                //get repos who's stargazers are less than 500
                 var request = new SearchRepositoriesRequest("github");
                 request.Stars = Range.LessThan(500);
                 client.SearchRepo(request);
@@ -392,7 +405,7 @@ namespace Octokit.Tests.Clients
             {
                 var connection = Substitute.For<IApiConnection>();
                 var client = new SearchClient(connection);
-                //get repos whos stargazers are less than 500 or equal to
+                //get repos who's stargazers are less than 500 or equal to
                 var request = new SearchRepositoriesRequest("github");
                 request.Stars = Range.LessThanOrEquals(500);
                 client.SearchRepo(request);
@@ -415,7 +428,7 @@ namespace Octokit.Tests.Clients
             }
 
             [Fact]
-            public void TestingTheForkQualifier()
+            public void TestingTheIncludeForkQualifier()
             {
                 var connection = Substitute.For<IApiConnection>();
                 var client = new SearchClient(connection);
@@ -424,7 +437,20 @@ namespace Octokit.Tests.Clients
                 request.Fork = ForkQualifier.IncludeForks;
                 client.SearchRepo(request);
                 connection.Received().Get<SearchRepositoryResult>(Arg.Is<Uri>(u => u.ToString() == "search/repositories"),
-                    Arg.Is<Dictionary<string, string>>(d => d["q"] == "github+fork:IncludeForks"));
+                    Arg.Is<Dictionary<string, string>>(d => d["q"] == "github+fork:true"));
+            }
+
+            [Fact]
+            public void TestingTheOnlyForkQualifier()
+            {
+                var connection = Substitute.For<IApiConnection>();
+                var client = new SearchClient(connection);
+                //search repos that contains rails and forks are included in the search
+                var request = new SearchRepositoriesRequest("github");
+                request.Fork = ForkQualifier.OnlyForks;
+                client.SearchRepo(request);
+                connection.Received().Get<SearchRepositoryResult>(Arg.Is<Uri>(u => u.ToString() == "search/repositories"),
+                    Arg.Is<Dictionary<string, string>>(d => d["q"] == "github+fork:only"));
             }
 
             [Fact]
@@ -432,7 +458,7 @@ namespace Octokit.Tests.Clients
             {
                 var connection = Substitute.For<IApiConnection>();
                 var client = new SearchClient(connection);
-                //get repos whos language is Ruby
+                //get repos who's language is Ruby
                 var request = new SearchRepositoriesRequest("github");
                 request.Language = Language.Ruby;
                 client.SearchRepo(request);
@@ -545,6 +571,17 @@ namespace Octokit.Tests.Clients
                     Arg.Is<Dictionary<string, string>>(d => d["q"] == "github+created:<=2011-01-01"));
             }
 
+            [Fact]
+            public void TestingTheCreatedQualifier_Between()
+            {
+                var connection = Substitute.For<IApiConnection>();
+                var client = new SearchClient(connection);
+                var request = new SearchRepositoriesRequest("github");
+                request.Created = DateRange.Between(new DateTime(2011, 1, 1), new DateTime(2012, 11, 11));
+                client.SearchRepo(request);
+                connection.Received().Get<SearchRepositoryResult>(Arg.Is<Uri>(u => u.ToString() == "search/repositories"),
+                    Arg.Is<Dictionary<string, string>>(d => d["q"] == "github+created:2011-01-01..2012-11-11"));
+            }
 
             [Fact]
             public void TestingTheUpdatedQualifier()
@@ -599,6 +636,18 @@ namespace Octokit.Tests.Clients
             }
 
             [Fact]
+            public void TestingTheUpdatedQualifier_Between()
+            {
+                var connection = Substitute.For<IApiConnection>();
+                var client = new SearchClient(connection);
+                var request = new SearchRepositoriesRequest("github");
+                request.Updated = DateRange.Between(new DateTime(2012, 4, 30), new DateTime(2012, 7, 4));
+                client.SearchRepo(request);
+                connection.Received().Get<SearchRepositoryResult>(Arg.Is<Uri>(u => u.ToString() == "search/repositories"),
+                    Arg.Is<Dictionary<string, string>>(d => d["q"] == "github+pushed:2012-04-30..2012-07-04"));
+            }
+
+            [Fact]
             public void TestingTheUserQualifier()
             {
                 var connection = Substitute.For<IApiConnection>();
@@ -618,14 +667,28 @@ namespace Octokit.Tests.Clients
                 var client = new SearchClient(connection);
                 var request = new SearchRepositoriesRequest("github");
                 request.SortField = RepoSearchSort.Stars;
-                
+
                 client.SearchRepo(request);
-                
+
                 connection.Received().Get<SearchRepositoryResult>(
                     Arg.Is<Uri>(u => u.ToString() == "search/repositories"),
-                    Arg.Is<Dictionary<string, string>>(d => 
+                    Arg.Is<Dictionary<string, string>>(d =>
                         d["q"] == "github" &&
                         d["sort"] == "stars"));
+            }
+            [Fact]
+            public void TestingTheSearchParameter()
+            {
+                var connection = Substitute.For<IApiConnection>();
+                var client = new SearchClient(connection);
+                var request = new SearchRepositoriesRequest();
+
+                client.SearchRepo(request);
+
+                connection.Received().Get<SearchRepositoryResult>(
+                    Arg.Is<Uri>(u => u.ToString() == "search/repositories"),
+                    Arg.Is<Dictionary<string, string>>(d =>
+                        string.IsNullOrEmpty(d["q"])));
             }
         }
 
@@ -756,12 +819,12 @@ namespace Octokit.Tests.Clients
             }
 
             [Fact]
-            public void TestingTheTypeQualifier_PR()
+            public void TestingTheTypeQualifier_PullRequest()
             {
                 var connection = Substitute.For<IApiConnection>();
                 var client = new SearchClient(connection);
                 var request = new SearchIssuesRequest("something");
-                request.Type = IssueTypeQualifier.PR;
+                request.Type = IssueTypeQualifier.PullRequest;
 
                 client.SearchIssues(request);
 
@@ -981,6 +1044,96 @@ namespace Octokit.Tests.Clients
             }
 
             [Fact]
+            public void TestingTheCreatedQualifier_Between()
+            {
+                var connection = Substitute.For<IApiConnection>();
+                var client = new SearchClient(connection);
+                var request = new SearchIssuesRequest("something");
+                request.Created = DateRange.Between(new DateTime(2014, 1, 1), new DateTime(2014, 2, 2));
+
+                client.SearchIssues(request);
+
+                connection.Received().Get<SearchIssuesResult>(
+                    Arg.Is<Uri>(u => u.ToString() == "search/issues"),
+                    Arg.Is<Dictionary<string, string>>(d => d["q"] == "something+created:2014-01-01..2014-02-02"));
+            }
+
+            [Fact]
+            public void TestingTheMergedQualifier_GreaterThan()
+            {
+                var connection = Substitute.For<IApiConnection>();
+                var client = new SearchClient(connection);
+                var request = new SearchIssuesRequest("something");
+                request.Merged = DateRange.GreaterThan(new DateTime(2014, 1, 1));
+
+                client.SearchIssues(request);
+
+                connection.Received().Get<SearchIssuesResult>(
+                    Arg.Is<Uri>(u => u.ToString() == "search/issues"),
+                    Arg.Is<Dictionary<string, string>>(d => d["q"] == "something+merged:>2014-01-01"));
+            }
+
+            [Fact]
+            public void TestingTheMergedQualifier_GreaterThanOrEquals()
+            {
+                var connection = Substitute.For<IApiConnection>();
+                var client = new SearchClient(connection);
+                var request = new SearchIssuesRequest("something");
+                request.Merged = DateRange.GreaterThanOrEquals(new DateTime(2014, 1, 1));
+
+                client.SearchIssues(request);
+
+                connection.Received().Get<SearchIssuesResult>(
+                    Arg.Is<Uri>(u => u.ToString() == "search/issues"),
+                    Arg.Is<Dictionary<string, string>>(d => d["q"] == "something+merged:>=2014-01-01"));
+            }
+
+            [Fact]
+            public void TestingTheMergedQualifier_LessThan()
+            {
+                var connection = Substitute.For<IApiConnection>();
+                var client = new SearchClient(connection);
+                var request = new SearchIssuesRequest("something");
+                request.Merged = DateRange.LessThan(new DateTime(2014, 1, 1));
+
+                client.SearchIssues(request);
+
+                connection.Received().Get<SearchIssuesResult>(
+                    Arg.Is<Uri>(u => u.ToString() == "search/issues"),
+                    Arg.Is<Dictionary<string, string>>(d => d["q"] == "something+merged:<2014-01-01"));
+            }
+
+            [Fact]
+            public void TestingTheMergedQualifier_LessThanOrEquals()
+            {
+                var connection = Substitute.For<IApiConnection>();
+                var client = new SearchClient(connection);
+                var request = new SearchIssuesRequest("something");
+                request.Merged = DateRange.LessThanOrEquals(new DateTime(2014, 1, 1));
+
+                client.SearchIssues(request);
+
+                connection.Received().Get<SearchIssuesResult>(
+                    Arg.Is<Uri>(u => u.ToString() == "search/issues"),
+                    Arg.Is<Dictionary<string, string>>(d => d["q"] == "something+merged:<=2014-01-01"));
+            }
+
+            [Fact]
+            public void TestingTheMergedQualifier_Between()
+            {
+                var connection = Substitute.For<IApiConnection>();
+                var client = new SearchClient(connection);
+                var request = new SearchIssuesRequest("something");
+                request.Merged = DateRange.Between(new DateTime(2014, 1, 1), new DateTime(2014, 2, 2));
+
+                client.SearchIssues(request);
+
+                connection.Received().Get<SearchIssuesResult>(
+                    Arg.Is<Uri>(u => u.ToString() == "search/issues"),
+                    Arg.Is<Dictionary<string, string>>(d => d["q"] == "something+merged:2014-01-01..2014-02-02"));
+            }
+
+            [Fact]
             public void TestingTheUpdatedQualifier_GreaterThan()
             {
                 var connection = Substitute.For<IApiConnection>();
@@ -1136,13 +1289,31 @@ namespace Octokit.Tests.Clients
                 var connection = Substitute.For<IApiConnection>();
                 var client = new SearchClient(connection);
                 var request = new SearchIssuesRequest("something");
-                request.Repo = "octokit.net";
+                request.Repos.Add("octokit", "octokit.net");
 
                 client.SearchIssues(request);
 
                 connection.Received().Get<SearchIssuesResult>(
                     Arg.Is<Uri>(u => u.ToString() == "search/issues"),
-                    Arg.Is<Dictionary<string, string>>(d => d["q"] == "something+repo:octokit.net"));
+                    Arg.Is<Dictionary<string, string>>(d => d["q"] == "something+repo:octokit/octokit.net"));
+            }
+
+            [Fact]
+            public async Task ErrorOccursWhenSpecifyingInvalidFormatForRepos()
+            {
+                var connection = Substitute.For<IApiConnection>();
+                var client = new SearchClient(connection);
+
+                var request = new SearchIssuesRequest("windows");
+                request.Repos = new RepositoryCollection {
+                    "haha-business"
+                };
+
+                request.SortField = IssueSearchSort.Created;
+                request.Order = SortDirection.Descending;
+
+                await Assert.ThrowsAsync<RepositoryFormatException>(
+                    async () => await client.SearchIssues(request));
             }
 
             [Fact]
@@ -1151,7 +1322,7 @@ namespace Octokit.Tests.Clients
                 var connection = Substitute.For<IApiConnection>();
                 var client = new SearchClient(connection);
                 var request = new SearchIssuesRequest("something");
-                request.Repo = "octokit.net";
+                request.Repos.Add("octokit/octokit.net");
                 request.User = "alfhenrik";
                 request.Labels = new[] { "bug" };
 
@@ -1160,7 +1331,7 @@ namespace Octokit.Tests.Clients
                 connection.Received().Get<SearchIssuesResult>(
                     Arg.Is<Uri>(u => u.ToString() == "search/issues"),
                     Arg.Is<Dictionary<string, string>>(d => d["q"] ==
-                        "something+label:bug+user:alfhenrik+repo:octokit.net"));
+                        "something+label:bug+user:alfhenrik+repo:octokit/octokit.net"));
             }
         }
 
@@ -1288,7 +1459,7 @@ namespace Octokit.Tests.Clients
 
                 connection.Received().Get<SearchCodeResult>(
                     Arg.Is<Uri>(u => u.ToString() == "search/code"),
-                    Arg.Is<Dictionary<string, string>>(d => d["q"] == "something+language:C#"));
+                    Arg.Is<Dictionary<string, string>>(d => d["q"] == "something+language:CSharp"));
             }
 
             [Fact]
@@ -1412,6 +1583,21 @@ namespace Octokit.Tests.Clients
             }
 
             [Fact]
+            public void TestingTheFileNameQualifier()
+            {
+                var connection = Substitute.For<IApiConnection>();
+                var client = new SearchClient(connection);
+                var request = new SearchCodeRequest("something");
+                request.FileName = "packages.config";
+
+                client.SearchCode(request);
+
+                connection.Received().Get<SearchCodeResult>(
+                    Arg.Is<Uri>(u => u.ToString() == "search/code"),
+                    Arg.Is<Dictionary<string, string>>(d => d["q"] == "something+filename:packages.config"));
+            }
+
+            [Fact]
             public void TestingTheUserQualifier()
             {
                 var connection = Substitute.For<IApiConnection>();
@@ -1431,14 +1617,28 @@ namespace Octokit.Tests.Clients
             {
                 var connection = Substitute.For<IApiConnection>();
                 var client = new SearchClient(connection);
-                var request = new SearchCodeRequest("something");
-                request.Repo = "octokit.net";
+                var request = new SearchCodeRequest("something", "octokit", "octokit.net");
 
                 client.SearchCode(request);
 
                 connection.Received().Get<SearchCodeResult>(
                     Arg.Is<Uri>(u => u.ToString() == "search/code"),
-                    Arg.Is<Dictionary<string, string>>(d => d["q"] == "something+repo:octokit.net"));
+                    Arg.Is<Dictionary<string, string>>(d => d["q"] == "something+repo:octokit/octokit.net"));
+            }
+
+            [Fact]
+            public void TestingTheOrgQualifier()
+            {
+                var connection = Substitute.For<IApiConnection>();
+                var client = new SearchClient(connection);
+                var request = new SearchCodeRequest("something");
+                request.Organization = "octokit";
+
+                client.SearchCode(request);
+
+                connection.Received().Get<SearchCodeResult>(
+                    Arg.Is<Uri>(u => u.ToString() == "search/code"),
+                    Arg.Is<Dictionary<string, string>>(d => d["q"] == "something+org:octokit"));
             }
 
             [Fact]
@@ -1446,8 +1646,7 @@ namespace Octokit.Tests.Clients
             {
                 var connection = Substitute.For<IApiConnection>();
                 var client = new SearchClient(connection);
-                var request = new SearchCodeRequest("something");
-                request.Repo = "octokit.net";
+                var request = new SearchCodeRequest("something", "octokit", "octokit.net");
                 request.Path = "tools/FAKE.core";
                 request.Extension = "fs";
 
@@ -1456,7 +1655,24 @@ namespace Octokit.Tests.Clients
                 connection.Received().Get<SearchCodeResult>(
                     Arg.Is<Uri>(u => u.ToString() == "search/code"),
                     Arg.Is<Dictionary<string, string>>(d =>
-                        d["q"] == "something+path:tools/FAKE.core+extension:fs+repo:octokit.net"));
+                        d["q"] == "something+path:tools/FAKE.core+extension:fs+repo:octokit/octokit.net"));
+            }
+
+            [Fact]
+            public async Task ErrorOccursWhenSpecifyingInvalidFormatForRepos()
+            {
+                var connection = Substitute.For<IApiConnection>();
+                var client = new SearchClient(connection);
+
+                var request = new SearchCodeRequest("windows");
+                request.Repos = new RepositoryCollection {
+                    "haha-business"
+                };
+
+                request.Order = SortDirection.Descending;
+
+                await Assert.ThrowsAsync<RepositoryFormatException>(
+                    async () => await client.SearchCode(request));
             }
         }
     }

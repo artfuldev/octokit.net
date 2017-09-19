@@ -1,38 +1,160 @@
 ﻿using System;
+using System.Collections;
 using System.Diagnostics;
 using System.Linq;
-using Octokit.Tests.Helpers;
 using Xunit;
 using System.Collections.Generic;
 using System.Reflection;
+using Octokit.Internal;
 
 namespace Octokit.Tests.Conventions
 {
     public class ModelTests
     {
+        private static readonly Assembly Octokit = typeof(AuthorizationUpdate).GetTypeInfo().Assembly;
+
         [Theory]
-        [MemberData("ModelTypes")]
+        [MemberData(nameof(ModelTypes))]
         public void AllModelsHaveDebuggerDisplayAttribute(Type modelType)
         {
-            var attribute = AssertEx.HasAttribute<DebuggerDisplayAttribute>(modelType);
+            var attribute = modelType.GetTypeInfo().GetCustomAttribute<DebuggerDisplayAttribute>(inherit: false);
+            if (attribute == null)
+            {
+                throw new MissingDebuggerDisplayAttributeException(modelType);
+            }
 
-            Assert.Equal("{DebuggerDisplay,nq}", attribute.Value);
+            if (attribute.Value != "{DebuggerDisplay,nq}")
+            {
+                throw new InvalidDebuggerDisplayAttributeValueException(modelType, attribute.Value);
+            }
 
             var property = modelType.GetProperty("DebuggerDisplay", BindingFlags.Instance | BindingFlags.NonPublic);
+            if (property == null)
+            {
+                throw new MissingDebuggerDisplayPropertyException(modelType);
+            }
 
-            Assert.NotNull(property);
-            Assert.Equal(typeof(string), property.PropertyType);
+            if (property.PropertyType != typeof(string))
+            {
+                throw new InvalidDebuggerDisplayReturnType(modelType, property.PropertyType);
+            }
         }
 
         [Theory]
-        [MemberData("ResponseModelTypes")]
+        [MemberData(nameof(ResponseModelTypes))]
+        public void AllResponseModelsHavePublicParameterlessCtors(Type modelType)
+        {
+            var ctor = modelType.GetConstructor(Type.EmptyTypes);
+
+            if (ctor == null || !ctor.IsPublic)
+            {
+                throw new MissingPublicParameterlessCtorException(modelType);
+            }
+        }
+
+        [Theory]
+        [MemberData(nameof(ResponseModelTypes))]
         public void ResponseModelsHaveGetterOnlyProperties(Type modelType)
         {
+            var mutableProperties = new List<PropertyInfo>();
+
             foreach (var property in modelType.GetProperties())
             {
                 var setter = property.GetSetMethod(nonPublic: true);
 
-                Assert.True(setter == null || !setter.IsPublic);
+                if (setter == null || !setter.IsPublic)
+                {
+                    continue;
+                }
+
+                mutableProperties.Add(property);
+            }
+
+            if (mutableProperties.Any())
+            {
+                throw new MutableModelPropertiesException(modelType, mutableProperties);
+            }
+        }
+
+        [Theory]
+        [MemberData(nameof(ResponseModelTypes))]
+        public void ResponseModelsHaveReadOnlyCollections(Type modelType)
+        {
+            var mutableCollectionProperties = new List<PropertyInfo>();
+
+            foreach (var property in modelType.GetProperties())
+            {
+                var propertyType = property.PropertyType;
+
+                if (typeof(IEnumerable).IsAssignableFrom(propertyType))
+                {
+                    // Let's skip arrays as well for now.
+                    // There seems to be some special array handling in the Gist model.
+                    if (propertyType == typeof(string) || propertyType.IsArray)
+                    {
+                        continue;
+                    }
+
+                    if (propertyType.IsReadOnlyCollection())
+                    {
+                        continue;
+                    }
+
+                    mutableCollectionProperties.Add(property);
+                }
+            }
+
+            if (mutableCollectionProperties.Any())
+            {
+                throw new MutableModelPropertiesException(modelType, mutableCollectionProperties);
+            }
+        }
+
+        [Theory]
+        [MemberData(nameof(ResponseModelTypes))]
+        public void ResponseModelsUseStringEnumWrapper(Type modelType)
+        {
+            var enumProperties = modelType.GetProperties()
+                .Where(x => x.PropertyType.GetTypeInfo().IsEnum);
+
+            if (enumProperties.Any())
+            {
+                throw new ModelNotUsingStringEnumException(modelType, enumProperties);
+            }
+        }
+
+        [Theory]
+        [MemberData(nameof(ModelTypesWithUrlProperties))]
+        public void ModelsHaveUrlPropertiesOfTypeString(Type modelType)
+        {
+            var propertiesWithInvalidType = modelType
+                .GetProperties()
+                .Where(IsUrlProperty)
+                .Where(x => x.PropertyType != typeof(string))
+                .ToList();
+
+            if (propertiesWithInvalidType.Count > 0)
+            {
+                throw new InvalidUrlPropertyTypeException(modelType, propertiesWithInvalidType);
+            }
+        }
+
+        [Theory]
+        [MemberData(nameof(EnumTypes))]
+        public void EnumMembersHaveParameterAttribute(Type enumType)
+        {
+            if (enumType == typeof(Language))
+            {
+                return; // TODO: Annotate all Language entries with a ParameterAttribute.
+            }
+
+            var membersWithoutProperty = enumType.GetRuntimeFields()
+                .Where(x => x.Name != "value__")
+                .Where(x => x.GetCustomAttribute(typeof(ParameterAttribute), false) == null);
+
+            if (membersWithoutProperty.Any())
+            {
+                throw new EnumMissingParameterAttributeException(enumType, membersWithoutProperty);
             }
         }
 
@@ -41,16 +163,38 @@ namespace Octokit.Tests.Conventions
             get { return GetModelTypes(includeRequestModels: true).Select(type => new[] { type }); }
         }
 
+        public static IEnumerable<object[]> ModelTypesWithUrlProperties
+        {
+            get
+            {
+                return GetModelTypes(includeRequestModels: true)
+                    .Where(type => type.GetProperties().Any(IsUrlProperty))
+                    .Select(type => new[] { type });
+            }
+        }
+
         public static IEnumerable<object[]> ResponseModelTypes
         {
             get { return GetModelTypes(includeRequestModels: false).Select(type => new[] { type }); }
+        }
+
+        public static IEnumerable<object[]> EnumTypes
+        {
+            get
+            {
+                return GetModelTypes(includeRequestModels: true)
+                    .SelectMany(type => type.GetProperties())
+                    .SelectMany(property => UnwrapGenericArguments(property.PropertyType))
+                    .Where(type => type.GetTypeInfo().Assembly.Equals(Octokit) && type.GetTypeInfo().IsEnum)
+                    .Select(type => new[] { type });
+            }
         }
 
         private static IEnumerable<Type> GetModelTypes(bool includeRequestModels)
         {
             var allModelTypes = new HashSet<Type>();
 
-            var clientInterfaces = typeof(IEventsClient).Assembly.ExportedTypes
+            var clientInterfaces = typeof(IGitHubClient).GetTypeInfo().Assembly.ExportedTypes
                 .Where(type => type.IsClientInterface());
 
             foreach (var exportedType in clientInterfaces)
@@ -110,7 +254,7 @@ namespace Octokit.Tests.Conventions
 
         private static IEnumerable<Type> UnwrapGenericArguments(Type returnType)
         {
-            if (returnType.IsGenericType)
+            if (returnType.GetTypeInfo().IsGenericType)
             {
                 var arguments = returnType.GetGenericArguments();
 
@@ -133,6 +277,11 @@ namespace Octokit.Tests.Conventions
             {
                 yield return returnType;
             }
+        }
+
+        private static bool IsUrlProperty(PropertyInfo property)
+        {
+            return property.Name.EndsWith("Url");
         }
     }
 }

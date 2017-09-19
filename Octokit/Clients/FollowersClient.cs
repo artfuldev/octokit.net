@@ -16,8 +16,8 @@ namespace Octokit
         /// Initializes a new GitHub User Followers API client.
         /// </summary>
         /// <param name="apiConnection">An API connection</param>
-        public FollowersClient(IApiConnection apiConnection) : base(apiConnection) 
-        { 
+        public FollowersClient(IApiConnection apiConnection) : base(apiConnection)
+        {
         }
 
         /// <summary>
@@ -29,7 +29,22 @@ namespace Octokit
         /// <returns>A <see cref="IReadOnlyList{User}"/> of <see cref="User"/>s that follow the authenticated user.</returns>
         public Task<IReadOnlyList<User>> GetAllForCurrent()
         {
-            return ApiConnection.GetAll<User>(ApiUrls.Followers());
+            return GetAllForCurrent(ApiOptions.None);
+        }
+
+        /// <summary>
+        /// List the authenticated user’s followers
+        /// </summary>
+        /// <param name="options">Options for changing the API response</param>
+        /// <remarks>
+        /// See the <a href="http://developer.github.com/v3/users/followers/#list-followers-of-a-user">API documentation</a> for more information.
+        /// </remarks>
+        /// <returns>A <see cref="IReadOnlyList{User}"/> of <see cref="User"/>s that follow the authenticated user.</returns>
+        public Task<IReadOnlyList<User>> GetAllForCurrent(ApiOptions options)
+        {
+            Ensure.ArgumentNotNull(options, "options");
+
+            return ApiConnection.GetAll<User>(ApiUrls.Followers(), options);
         }
 
         /// <summary>
@@ -44,7 +59,24 @@ namespace Octokit
         {
             Ensure.ArgumentNotNullOrEmptyString(login, "login");
 
-            return ApiConnection.GetAll<User>(ApiUrls.Followers(login));
+            return GetAll(login, ApiOptions.None);
+        }
+
+        /// <summary>
+        /// List a user’s followers
+        /// </summary>
+        /// <param name="login">The login name for the user</param>
+        /// <param name="options">Options for changing the API response</param>
+        /// <remarks>
+        /// See the <a href="http://developer.github.com/v3/users/followers/#list-followers-of-a-user">API documentation</a> for more information.
+        /// </remarks>
+        /// <returns>A <see cref="IReadOnlyList{User}"/> of <see cref="User"/>s that follow the passed user.</returns>
+        public Task<IReadOnlyList<User>> GetAll(string login, ApiOptions options)
+        {
+            Ensure.ArgumentNotNullOrEmptyString(login, "login");
+            Ensure.ArgumentNotNull(options, "options");
+
+            return ApiConnection.GetAll<User>(ApiUrls.Followers(login), options);
         }
 
         /// <summary>
@@ -54,9 +86,24 @@ namespace Octokit
         /// See the <a href="http://developer.github.com/v3/users/followers/#list-users-followed-by-another-user">API documentation</a> for more information.
         /// </remarks>
         /// <returns>A <see cref="IReadOnlyList{User}"/> of <see cref="User"/>s that the authenticated user follows.</returns>
-        public Task<IReadOnlyList<User>> GetFollowingForCurrent()
+        public Task<IReadOnlyList<User>> GetAllFollowingForCurrent()
         {
-            return ApiConnection.GetAll<User>(ApiUrls.Following());
+            return GetAllFollowingForCurrent(ApiOptions.None);
+        }
+
+        /// <summary>
+        /// List who the authenticated user is following
+        /// </summary>
+        /// <param name="options">Options for changing the API response</param>
+        /// <remarks>
+        /// See the <a href="http://developer.github.com/v3/users/followers/#list-users-followed-by-another-user">API documentation</a> for more information.
+        /// </remarks>
+        /// <returns>A <see cref="IReadOnlyList{User}"/> of <see cref="User"/>s that the authenticated user follows.</returns>
+        public Task<IReadOnlyList<User>> GetAllFollowingForCurrent(ApiOptions options)
+        {
+            Ensure.ArgumentNotNull(options, "options");
+
+            return ApiConnection.GetAll<User>(ApiUrls.Following(), options);
         }
 
         /// <summary>
@@ -67,11 +114,28 @@ namespace Octokit
         /// See the <a href="http://developer.github.com/v3/users/followers/#list-users-followed-by-another-user">API documentation</a> for more information.
         /// </remarks>
         /// <returns>A <see cref="IReadOnlyList{User}"/> of <see cref="User"/>s that the passed user follows.</returns>
-        public Task<IReadOnlyList<User>> GetFollowing(string login)
+        public Task<IReadOnlyList<User>> GetAllFollowing(string login)
         {
             Ensure.ArgumentNotNullOrEmptyString(login, "login");
 
-            return ApiConnection.GetAll<User>(ApiUrls.Following(login));
+            return GetAllFollowing(login, ApiOptions.None);
+        }
+
+        /// <summary>
+        /// List who a user is following
+        /// </summary>
+        /// <param name="login">The login name of the user</param>
+        /// <param name="options">Options for changing the API response</param>
+        /// <remarks>
+        /// See the <a href="http://developer.github.com/v3/users/followers/#list-users-followed-by-another-user">API documentation</a> for more information.
+        /// </remarks>
+        /// <returns>A <see cref="IReadOnlyList{User}"/> of <see cref="User"/>s that the passed user follows.</returns>
+        public Task<IReadOnlyList<User>> GetAllFollowing(string login, ApiOptions options)
+        {
+            Ensure.ArgumentNotNullOrEmptyString(login, "login");
+            Ensure.ArgumentNotNull(options, "options");
+
+            return ApiConnection.GetAll<User>(ApiUrls.Following(login), options);
         }
 
         /// <summary>
@@ -88,8 +152,7 @@ namespace Octokit
 
             try
             {
-                var response = await Connection.Get<object>(ApiUrls.IsFollowing(following), null, null)
-                                                .ConfigureAwait(false);
+                var response = await Connection.Get<object>(ApiUrls.IsFollowing(following), null, null).ConfigureAwait(false);
                 return response.HttpResponse.IsTrue();
             }
             catch (NotFoundException)
@@ -114,8 +177,7 @@ namespace Octokit
 
             try
             {
-                var response = await Connection.Get<object>(ApiUrls.IsFollowing(login, following), null, null)
-                                                .ConfigureAwait(false);
+                var response = await Connection.Get<object>(ApiUrls.IsFollowing(login, following), null, null).ConfigureAwait(false);
                 return response.HttpResponse.IsTrue();
             }
             catch (NotFoundException)
@@ -139,8 +201,7 @@ namespace Octokit
             try
             {
                 var requestData = new { };
-                var response = await Connection.Put<object>(ApiUrls.IsFollowing(login), requestData)
-                                                .ConfigureAwait(false);
+                var response = await Connection.Put<object>(ApiUrls.IsFollowing(login), requestData).ConfigureAwait(false);
                 if (response.HttpResponse.StatusCode != HttpStatusCode.NoContent)
                 {
                     throw new ApiException("Invalid Status Code returned. Expected a 204", response.HttpResponse.StatusCode);

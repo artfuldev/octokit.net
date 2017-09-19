@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-#if NET_45
 using System.Collections.ObjectModel;
-#endif
 
 namespace Octokit
 {
@@ -19,6 +17,7 @@ namespace Octokit
         {
             Ensure.ArgumentNotNull(links, "links");
             Ensure.ArgumentNotNull(oauthScopes, "oauthScopes");
+            Ensure.ArgumentNotNull(acceptedOauthScopes, "acceptedOauthScopes");
 
             Links = new ReadOnlyDictionary<string, Uri>(links);
             OauthScopes = new ReadOnlyCollection<string>(oauthScopes);
@@ -51,5 +50,18 @@ namespace Octokit
         /// Information about the API rate limit
         /// </summary>
         public RateLimit RateLimit { get; private set; }
+
+        /// <summary>
+        /// Allows you to clone ApiInfo 
+        /// </summary>
+        /// <returns>A clone of <seealso cref="ApiInfo"/></returns>
+        public ApiInfo Clone()
+        {
+            return new ApiInfo(Links.Clone(),
+                               OauthScopes.Clone(),
+                               AcceptedOauthScopes.Clone(),
+                               Etag != null ? new string(Etag.ToCharArray()) : null,
+                               RateLimit != null ? RateLimit.Clone() : null);
+        }
     }
 }

@@ -1,9 +1,11 @@
-﻿using System;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Globalization;
 
 namespace Octokit
 {
+    /// <summary>
+    /// Used to create a pull request review comment.
+    /// </summary>
     [DebuggerDisplay("{DebuggerDisplay,nq}")]
     public class PullRequestReviewCommentCreate : RequestParameters
     {
@@ -48,7 +50,7 @@ namespace Octokit
 
         internal string DebuggerDisplay
         {
-            get { return String.Format(CultureInfo.InvariantCulture, "CommitId: {0}, Path: {1}, Position: {2}", CommitId, Path, Position); }
+            get { return string.Format(CultureInfo.InvariantCulture, "CommitId: {0}, Path: {1}, Position: {2}", CommitId, Path, Position); }
         }
     }
 }

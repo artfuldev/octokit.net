@@ -1,6 +1,8 @@
-﻿namespace Octokit.Reactive
+﻿using System;
+
+namespace Octokit.Reactive
 {
-    public interface IObservableGitHubClient
+    public interface IObservableGitHubClient : IApiInfoProvider
     {
         IConnection Connection { get; }
 
@@ -13,11 +15,11 @@
         IObservablePullRequestsClient PullRequest { get; }
         IObservableRepositoriesClient Repository { get; }
         IObservableGistsClient Gist { get; }
-        IObservableReleasesClient Release { get; }
-        IObservableSshKeysClient SshKey { get; }
         IObservableUsersClient User { get; }
-        IObservableNotificationsClient Notification { get; }
-        IObservableGitDatabaseClient GitDatabase { get; }
+        IObservableGitDatabaseClient Git { get; }
         IObservableSearchClient Search { get; }
+        IObservableEnterpriseClient Enterprise { get; }
+        IObservableMigrationClient Migration { get; }
+        IObservableReactionsClient Reaction { get; }
     }
 }

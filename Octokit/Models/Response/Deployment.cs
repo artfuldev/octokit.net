@@ -7,7 +7,7 @@ using System.Globalization;
 namespace Octokit
 {
     [SuppressMessage("Microsoft.Naming", "CA1724:TypeNamesShouldNotMatchNamespaces",
-        Justification="People can use fully qualified names if they want to use both.")]
+        Justification = "People can use fully qualified names if they want to use both.")]
     [DebuggerDisplay("{DebuggerDisplay,nq}")]
     public class Deployment
     {
@@ -71,11 +71,21 @@ namespace Octokit
         /// </summary>
         public string StatusesUrl { get; protected set; }
 
+        /// <summary>
+        /// Indicates if the environment is specific to a deployment and will no longer exist at some point in the future.
+        /// </summary>
+        public bool TransientEnvironment { get; protected set; }
+
+        /// <summary>
+        /// Indicates if the environment is one with which end users directly interact.
+        /// </summary>
+        public bool ProductionEnvironment { get; protected set; }
+
         internal string DebuggerDisplay
         {
             get
             {
-                return String.Format(CultureInfo.InvariantCulture, "CreatedAt: {0}", CreatedAt);
+                return string.Format(CultureInfo.InvariantCulture, "CreatedAt: {0}", CreatedAt);
             }
         }
     }

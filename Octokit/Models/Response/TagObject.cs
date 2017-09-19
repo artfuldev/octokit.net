@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using Octokit.Internal;
 
 namespace Octokit
 {
@@ -14,9 +15,9 @@ namespace Octokit
             Type = type;
         }
 
-        [SuppressMessage("Microsoft.Naming", "CA1721:PropertyNamesShouldNotMatchGetMethods", 
-            Justification = "Name defined by web api and required for deserialisation")]
-        public TaggedType Type { get; protected set; }
+        [SuppressMessage("Microsoft.Naming", "CA1721:PropertyNamesShouldNotMatchGetMethods",
+            Justification = "Name defined by web api and required for deserialization")]
+        public StringEnum<TaggedType> Type { get; protected set; }
     }
 
     /// <summary>
@@ -24,9 +25,16 @@ namespace Octokit
     /// </summary>
     public enum TaggedType
     {
+        [Parameter(Value = "commit")]
         Commit,
+
+        [Parameter(Value = "blob")]
         Blob,
+
+        [Parameter(Value = "tree")]
         Tree,
+
+        [Parameter(Value = "tag")]
         Tag
     }
 }

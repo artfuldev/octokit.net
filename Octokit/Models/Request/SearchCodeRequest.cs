@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
@@ -16,7 +15,37 @@ namespace Octokit
     [DebuggerDisplay("{DebuggerDisplay,nq}")]
     public class SearchCodeRequest : BaseSearchRequest
     {
-        public SearchCodeRequest(string term) : base(term) { }
+        /// <summary>
+        /// Initializes a new instance of the <see cref="SearchCodeRequest"/> class.
+        /// </summary>
+        public SearchCodeRequest() : base()
+        {
+            Repos = new RepositoryCollection();
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="SearchCodeRequest"/> class.
+        /// </summary>
+        /// <param name="term">The search term.</param>
+        public SearchCodeRequest(string term) : base(term)
+        {
+            Repos = new RepositoryCollection();
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="SearchCodeRequest"/> class.
+        /// </summary>
+        /// <param name="term">The term.</param>
+        /// <param name="owner">The owner.</param>
+        /// <param name="name">The name.</param>
+        public SearchCodeRequest(string term, string owner, string name)
+            : this(term)
+        {
+            Ensure.ArgumentNotNullOrEmptyString(owner, "owner");
+            Ensure.ArgumentNotNullOrEmptyString(name, "name");
+
+            Repos.Add(owner, name);
+        }
 
         /// <summary>
         /// Optional Sort field. Can only be indexed, which indicates how recently 
@@ -95,6 +124,14 @@ namespace Octokit
         public string Extension { get; set; }
 
         /// <summary>
+        /// Matches specific file names
+        /// </summary>
+        /// <remarks>
+        /// https://help.github.com/articles/searching-code/#search-by-filename
+        /// </remarks>
+        public string FileName { get; set; }
+
+        /// <summary>
         /// Limits searches to a specific user.
         /// </summary>
         /// <remarks>
@@ -103,12 +140,21 @@ namespace Octokit
         public string User { get; set; }
 
         /// <summary>
+        /// Limits searches to a specific organization.
+        /// </summary>
+        /// <remarks>
+        /// https://help.github.com/articles/searching-code/#search-within-a-users-or-organizations-repositories
+        /// </remarks>
+        public string Organization { get; set; }
+
+        /// <summary>
         /// Limits searches to a specific repository.
         /// </summary>
         /// <remarks>
         /// https://help.github.com/articles/searching-code#users-organizations-and-repositories
         /// </remarks>
-        public string Repo { get; set; }
+        [SuppressMessage("Microsoft.Usage", "CA2227:CollectionPropertiesShouldBeReadOnly")]
+        public RepositoryCollection Repos { get; set; }
 
         [SuppressMessage("Microsoft.Globalization", "CA1304:SpecifyCultureInfo", MessageId = "System.String.ToLower")]
         public override IReadOnlyList<string> MergedQualifiers()
@@ -117,45 +163,62 @@ namespace Octokit
 
             if (In != null)
             {
-                parameters.Add(String.Format(CultureInfo.InvariantCulture, "in:{0}",
-                    String.Join(",", In.Select(i => i.ToParameter()))));
+                parameters.Add(string.Format(CultureInfo.InvariantCulture, "in:{0}",
+                    string.Join(",", In.Select(i => i.ToParameter()))));
             }
 
             if (Language != null)
             {
-                parameters.Add(String.Format(CultureInfo.InvariantCulture, "language:{0}", Language.ToParameter()));
+                parameters.Add(string.Format(CultureInfo.InvariantCulture, "language:{0}", Language.ToParameter()));
             }
 
             if (Forks != null)
             {
                 // API is expecting 'true', bool.ToString() returns 'True', if there is a better way,
                 // please, oh please let me know...
-                parameters.Add(String.Format(CultureInfo.InvariantCulture, "fork:{0}", Forks.Value.ToString().ToLower()));
+                parameters.Add(string.Format(CultureInfo.InvariantCulture, "fork:{0}", Forks.Value.ToString().ToLower()));
             }
 
             if (Size != null)
             {
-                parameters.Add(String.Format(CultureInfo.InvariantCulture, "size:{0}", Size));
+                parameters.Add(string.Format(CultureInfo.InvariantCulture, "size:{0}", Size));
             }
 
             if (Path.IsNotBlank())
             {
-                parameters.Add(String.Format(CultureInfo.InvariantCulture, "path:{0}", Path));
+                parameters.Add(string.Format(CultureInfo.InvariantCulture, "path:{0}", Path));
             }
 
             if (Extension.IsNotBlank())
             {
-                parameters.Add(String.Format(CultureInfo.InvariantCulture, "extension:{0}", Extension));
+                parameters.Add(string.Format(CultureInfo.InvariantCulture, "extension:{0}", Extension));
+            }
+
+            if (FileName.IsNotBlank())
+            {
+                parameters.Add(string.Format(CultureInfo.InvariantCulture, "filename:{0}", FileName));
             }
 
             if (User.IsNotBlank())
             {
-                parameters.Add(String.Format(CultureInfo.InvariantCulture, "user:{0}", User));
+                parameters.Add(string.Format(CultureInfo.InvariantCulture, "user:{0}", User));
             }
 
-            if (Repo.IsNotBlank())
+            if (Repos.Any())
             {
-                parameters.Add(String.Format(CultureInfo.InvariantCulture, "repo:{0}", Repo));
+                var invalidFormatRepos = Repos.Where(x => !x.IsNameWithOwnerFormat());
+                if (invalidFormatRepos.Any())
+                {
+                    throw new RepositoryFormatException(invalidFormatRepos);
+                }
+
+                parameters.Add(
+                    string.Join("+", Repos.Select(x => "repo:" + x)));
+            }
+
+            if (Organization.IsNotBlank())
+            {
+                parameters.Add(string.Format(CultureInfo.InvariantCulture, "org:{0}", Organization));
             }
 
             return new ReadOnlyCollection<string>(parameters);
@@ -165,7 +228,7 @@ namespace Octokit
         {
             get
             {
-                return String.Format(CultureInfo.InvariantCulture, "Term: {0} Sort: {1}", Term, Sort);
+                return string.Format(CultureInfo.InvariantCulture, "Term: {0} Sort: {1}", Term, Sort);
             }
         }
     }

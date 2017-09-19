@@ -21,9 +21,8 @@ namespace Octokit.Tests.Models
                            "\"has_wiki\":true," +
                            "\"has_downloads\":true}";
 
-            var update = new RepositoryUpdate
+            var update = new RepositoryUpdate("Hello-World")
             {
-                Name = "Hello-World",
                 Description = "This is your first repository",
                 Homepage = "https://github.com",
                 Private = true,
@@ -31,9 +30,9 @@ namespace Octokit.Tests.Models
                 HasWiki = true,
                 HasDownloads = true
             };
-            
+
             var json = new SimpleJsonSerializer().Serialize(update);
-            
+
             Assert.Equal(expected, json);
         }
     }

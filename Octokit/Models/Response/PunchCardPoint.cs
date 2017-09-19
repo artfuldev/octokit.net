@@ -29,7 +29,7 @@ namespace Octokit
             CommitCount = commitCount;
         }
 
-        public DayOfWeek DayOfWeek { get; private set; }
+        public StringEnum<DayOfWeek> DayOfWeek { get; private set; }
         public int HourOfTheDay { get; private set; }
         public int CommitCount { get; private set; }
 
@@ -37,8 +37,8 @@ namespace Octokit
         {
             get
             {
-                return String.Format(CultureInfo.InvariantCulture,
-                    "Day: {0} Hour: {1} Commit Count:{2}", DayOfWeek,HourOfTheDay,CommitCount);
+                return string.Format(CultureInfo.InvariantCulture,
+                    "Day: {0} Hour: {1} Commit Count:{2}", DayOfWeek, HourOfTheDay, CommitCount);
             }
         }
     }

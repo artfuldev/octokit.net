@@ -1,12 +1,11 @@
 ﻿using System;
-using System.Reactive.Threading.Tasks;
 using System.Reactive;
-using System.Net;
+using System.Reactive.Threading.Tasks;
 using Octokit.Reactive.Internal;
 
 namespace Octokit.Reactive
 {
-    public class ObservableGistsClient : IObservableGistsClient 
+    public class ObservableGistsClient : IObservableGistsClient
     {
         readonly IGistsClient _client;
         readonly IConnection _connection;
@@ -85,7 +84,22 @@ namespace Octokit.Reactive
         /// </remarks>
         public IObservable<Gist> GetAll()
         {
-            return _connection.GetAndFlattenAllPages<Gist>(ApiUrls.Gist());
+            return GetAll(ApiOptions.None);
+        }
+
+        /// <summary>
+        /// List the authenticated user’s gists or if called anonymously, 
+        /// this will return all public gists
+        /// </summary>
+        /// <remarks>
+        /// http://developer.github.com/v3/gists/#list-gists
+        /// </remarks>
+        /// <param name="options">Options for changing the API response</param>
+        public IObservable<Gist> GetAll(ApiOptions options)
+        {
+            Ensure.ArgumentNotNull(options, "options");
+
+            return _connection.GetAndFlattenAllPages<Gist>(ApiUrls.Gist(), options);
         }
 
         /// <summary>
@@ -98,8 +112,24 @@ namespace Octokit.Reactive
         /// <param name="since">Only gists updated at or after this time are returned</param>
         public IObservable<Gist> GetAll(DateTimeOffset since)
         {
+            return GetAll(since, ApiOptions.None);
+        }
+
+        /// <summary>
+        /// List the authenticated user’s gists or if called anonymously, 
+        /// this will return all public gists
+        /// </summary>
+        /// <remarks>
+        /// http://developer.github.com/v3/gists/#list-gists
+        /// </remarks>
+        /// <param name="since">Only gists updated at or after this time are returned</param>
+        /// <param name="options">Options for changing the API response</param>
+        public IObservable<Gist> GetAll(DateTimeOffset since, ApiOptions options)
+        {
+            Ensure.ArgumentNotNull(options, "options");
+
             var request = new GistRequest(since);
-            return _connection.GetAndFlattenAllPages<Gist>(ApiUrls.Gist(), request.ToParametersDictionary());
+            return _connection.GetAndFlattenAllPages<Gist>(ApiUrls.Gist(), request.ToParametersDictionary(), options);
         }
 
         /// <summary>
@@ -110,7 +140,21 @@ namespace Octokit.Reactive
         /// </remarks>
         public IObservable<Gist> GetAllPublic()
         {
-            return _connection.GetAndFlattenAllPages<Gist>(ApiUrls.PublicGists());
+            return GetAllPublic(ApiOptions.None);
+        }
+
+        /// <summary>
+        /// Lists all public gists
+        /// </summary>
+        /// <remarks>
+        /// http://developer.github.com/v3/gists/#list-gists
+        /// </remarks>
+        /// <param name="options">Options for changing the API response</param>
+        public IObservable<Gist> GetAllPublic(ApiOptions options)
+        {
+            Ensure.ArgumentNotNull(options, "options");
+
+            return _connection.GetAndFlattenAllPages<Gist>(ApiUrls.PublicGists(), options);
         }
 
         /// <summary>
@@ -122,8 +166,23 @@ namespace Octokit.Reactive
         /// <param name="since">Only gists updated at or after this time are returned</param>
         public IObservable<Gist> GetAllPublic(DateTimeOffset since)
         {
+            return GetAllPublic(since, ApiOptions.None);
+        }
+
+        /// <summary>
+        /// Lists all public gists
+        /// </summary>
+        /// <remarks>
+        /// http://developer.github.com/v3/gists/#list-gists
+        /// </remarks>
+        /// <param name="since">Only gists updated at or after this time are returned</param>
+        /// <param name="options">Options for changing the API response</param>
+        public IObservable<Gist> GetAllPublic(DateTimeOffset since, ApiOptions options)
+        {
+            Ensure.ArgumentNotNull(options, "options");
+
             var request = new GistRequest(since);
-            return _connection.GetAndFlattenAllPages<Gist>(ApiUrls.PublicGists(), request.ToParametersDictionary());
+            return _connection.GetAndFlattenAllPages<Gist>(ApiUrls.PublicGists(), request.ToParametersDictionary(), options);
         }
 
         /// <summary>
@@ -134,7 +193,21 @@ namespace Octokit.Reactive
         /// </remarks>
         public IObservable<Gist> GetAllStarred()
         {
-            return _connection.GetAndFlattenAllPages<Gist>(ApiUrls.StarredGists());
+            return GetAllStarred(ApiOptions.None);
+        }
+
+        /// <summary>
+        /// List the authenticated user’s starred gists
+        /// </summary>
+        /// <remarks>
+        /// http://developer.github.com/v3/gists/#list-gists
+        /// </remarks>
+        /// <param name="options">Options for changing the API response</param>
+        public IObservable<Gist> GetAllStarred(ApiOptions options)
+        {
+            Ensure.ArgumentNotNull(options, "options");
+
+            return _connection.GetAndFlattenAllPages<Gist>(ApiUrls.StarredGists(), options);
         }
 
         /// <summary>
@@ -146,8 +219,23 @@ namespace Octokit.Reactive
         /// <param name="since">Only gists updated at or after this time are returned</param>
         public IObservable<Gist> GetAllStarred(DateTimeOffset since)
         {
+            return GetAllStarred(since, ApiOptions.None);
+        }
+
+        /// <summary>
+        /// List the authenticated user’s starred gists
+        /// </summary>
+        /// <remarks>
+        /// http://developer.github.com/v3/gists/#list-gists
+        /// </remarks>
+        /// <param name="since">Only gists updated at or after this time are returned</param>
+        /// <param name="options">Options for changing the API response</param>
+        public IObservable<Gist> GetAllStarred(DateTimeOffset since, ApiOptions options)
+        {
+            Ensure.ArgumentNotNull(options, "options");
+
             var request = new GistRequest(since);
-            return _connection.GetAndFlattenAllPages<Gist>(ApiUrls.StarredGists(), request.ToParametersDictionary());
+            return _connection.GetAndFlattenAllPages<Gist>(ApiUrls.StarredGists(), request.ToParametersDictionary(), options);
         }
 
         /// <summary>
@@ -159,9 +247,25 @@ namespace Octokit.Reactive
         /// <param name="user">The user</param>
         public IObservable<Gist> GetAllForUser(string user)
         {
-            Ensure.ArgumentNotNull(user, "user");
+            Ensure.ArgumentNotNullOrEmptyString(user, "user");
 
-            return _connection.GetAndFlattenAllPages<Gist>(ApiUrls.UsersGists(user));
+            return GetAllForUser(user, ApiOptions.None);
+        }
+
+        /// <summary>
+        /// List a user's gists
+        /// </summary>
+        /// <remarks>
+        /// http://developer.github.com/v3/gists/#list-gists
+        /// </remarks>
+        /// <param name="user">The user</param>
+        /// <param name="options">Options for changing the API response</param>
+        public IObservable<Gist> GetAllForUser(string user, ApiOptions options)
+        {
+            Ensure.ArgumentNotNullOrEmptyString(user, "user");
+            Ensure.ArgumentNotNull(options, "options");
+
+            return _connection.GetAndFlattenAllPages<Gist>(ApiUrls.UsersGists(user), options);
         }
 
         /// <summary>
@@ -174,10 +278,87 @@ namespace Octokit.Reactive
         /// <param name="since">Only gists updated at or after this time are returned</param>
         public IObservable<Gist> GetAllForUser(string user, DateTimeOffset since)
         {
-            Ensure.ArgumentNotNull(user, "user");
+            Ensure.ArgumentNotNullOrEmptyString(user, "user");
+
+            return GetAllForUser(user, since, ApiOptions.None);
+        }
+
+        /// <summary>
+        /// List a user's gists
+        /// </summary>
+        /// <remarks>
+        /// http://developer.github.com/v3/gists/#list-gists
+        /// </remarks>
+        /// <param name="user">The user</param>
+        /// <param name="since">Only gists updated at or after this time are returned</param>
+        /// <param name="options">Options for changing the API response</param>
+        public IObservable<Gist> GetAllForUser(string user, DateTimeOffset since, ApiOptions options)
+        {
+            Ensure.ArgumentNotNullOrEmptyString(user, "user");
+            Ensure.ArgumentNotNull(options, "options");
 
             var request = new GistRequest(since);
-            return _connection.GetAndFlattenAllPages<Gist>(ApiUrls.UsersGists(user), request.ToParametersDictionary());
+            return _connection.GetAndFlattenAllPages<Gist>(ApiUrls.UsersGists(user), request.ToParametersDictionary(), options);
+        }
+
+        /// <summary>
+        /// List gist commits
+        /// </summary>
+        /// <remarks>
+        /// http://developer.github.com/v3/gists/#list-gists-commits
+        /// </remarks>
+        /// <param name="id">The id of the gist</param>
+        public IObservable<GistHistory> GetAllCommits(string id)
+        {
+            Ensure.ArgumentNotNullOrEmptyString(id, "id");
+
+            return GetAllCommits(id, ApiOptions.None);
+        }
+
+        /// <summary>
+        /// List gist commits
+        /// </summary>
+        /// <remarks>
+        /// http://developer.github.com/v3/gists/#list-gists-commits
+        /// </remarks>
+        /// <param name="id">The id of the gist</param>
+        /// <param name="options">Options for changing the API response</param>
+        public IObservable<GistHistory> GetAllCommits(string id, ApiOptions options)
+        {
+            Ensure.ArgumentNotNullOrEmptyString(id, "id");
+            Ensure.ArgumentNotNull(options, "options");
+
+            return _connection.GetAndFlattenAllPages<GistHistory>(ApiUrls.GistCommits(id), options);
+        }
+
+        /// <summary>
+        /// List gist forks
+        /// </summary>
+        /// <remarks>
+        /// http://developer.github.com/v3/gists/#list-gists-forks
+        /// </remarks>
+        /// <param name="id">The id of the gist</param>
+        public IObservable<GistFork> GetAllForks(string id)
+        {
+            Ensure.ArgumentNotNullOrEmptyString(id, "id");
+
+            return GetAllForks(id, ApiOptions.None);
+        }
+
+        /// <summary>
+        /// List gist forks
+        /// </summary>
+        /// <remarks>
+        /// http://developer.github.com/v3/gists/#list-gists-forks
+        /// </remarks>
+        /// <param name="id">The id of the gist</param>
+        /// <param name="options">Options for changing the API response</param>
+        public IObservable<GistFork> GetAllForks(string id, ApiOptions options)
+        {
+            Ensure.ArgumentNotNullOrEmptyString(id, "id");
+            Ensure.ArgumentNotNull(options, "options");
+
+            return _connection.GetAndFlattenAllPages<GistFork>(ApiUrls.ForkGist(id), options);
         }
 
         /// <summary>

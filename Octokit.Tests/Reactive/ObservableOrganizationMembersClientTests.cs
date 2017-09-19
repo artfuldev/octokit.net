@@ -1,18 +1,26 @@
 ﻿using NSubstitute;
-using Octokit;
-using Octokit.Internal;
 using Octokit.Reactive;
-using Octokit.Tests.Helpers;
 using System;
 using System.Collections.Generic;
-using System.Reactive.Linq;
+using System.Reactive.Threading.Tasks;
 using System.Threading.Tasks;
+using Octokit.Reactive.Internal;
 using Xunit;
 
 namespace Octokit.Tests.Reactive
 {
     public class ObservableOrganizationMembersClientTests
     {
+        public class TheCtor
+        {
+            [Fact]
+            public void EnsuresNonNullArguments()
+            {
+                Assert.Throws<ArgumentNullException>(
+                    () => new ObservableOrganizationMembersClient(null));
+            }
+        }
+
         public class TheGetAllMethod
         {
             [Fact]
@@ -24,7 +32,26 @@ namespace Octokit.Tests.Reactive
                 client.GetAll("org");
 
                 gitHubClient.Connection.Received(1).Get<List<User>>(
-                    new Uri("orgs/org/members", UriKind.Relative), null, null);
+                    new Uri("orgs/org/members", UriKind.Relative), Args.EmptyDictionary, null);
+            }
+
+            [Fact]
+            public void RequestsCorrectUrlWithApiOptions()
+            {
+                var gitHubClient = Substitute.For<IGitHubClient>();
+                var client = new ObservableOrganizationMembersClient(gitHubClient);
+
+                var options = new ApiOptions
+                {
+                    PageCount = 1,
+                    StartPage = 1,
+                    PageSize = 1
+                };
+
+                client.GetAll("org", options);
+
+                gitHubClient.Connection.Received(1).Get<List<User>>(
+                    new Uri("orgs/org/members", UriKind.Relative), Arg.Is<IDictionary<string, string>>(d => d.Count == 2), null);
             }
 
             [Fact]
@@ -32,8 +59,80 @@ namespace Octokit.Tests.Reactive
             {
                 var client = new ObservableOrganizationMembersClient(Substitute.For<IGitHubClient>());
 
-                await AssertEx.Throws<ArgumentNullException>(async () => await client.GetAll(null));
-                await AssertEx.Throws<ArgumentException>(async () => await client.GetAll(""));
+                Assert.Throws<ArgumentNullException>(() => client.GetAll(null));
+
+                Assert.Throws<ArgumentNullException>(() => client.GetAll(null, ApiOptions.None));
+                Assert.Throws<ArgumentNullException>(() => client.GetAll("org", null));
+
+                Assert.Throws<ArgumentNullException>(() => client.GetAll(null, OrganizationMembersFilter.All));
+                Assert.Throws<ArgumentNullException>(() => client.GetAll(null, OrganizationMembersFilter.All, ApiOptions.None));
+
+                Assert.Throws<ArgumentNullException>(() => client.GetAll("org", OrganizationMembersFilter.All, null));
+                Assert.Throws<ArgumentNullException>(() => client.GetAll(null, OrganizationMembersFilter.All, OrganizationMembersRole.Admin));
+
+                Assert.Throws<ArgumentNullException>(() => client.GetAll(null, OrganizationMembersFilter.All, OrganizationMembersRole.Admin, ApiOptions.None));
+                Assert.Throws<ArgumentNullException>(() => client.GetAll("org", OrganizationMembersFilter.All, OrganizationMembersRole.Admin, null));
+
+                Assert.Throws<ArgumentException>(() => client.GetAll(""));
+                Assert.Throws<ArgumentException>(() => client.GetAll("", ApiOptions.None));
+                Assert.Throws<ArgumentException>(() => client.GetAll("", OrganizationMembersFilter.All));
+                Assert.Throws<ArgumentException>(() => client.GetAll("", OrganizationMembersFilter.All, OrganizationMembersRole.Admin));
+                Assert.Throws<ArgumentException>(() => client.GetAll("", OrganizationMembersFilter.All, OrganizationMembersRole.Admin, ApiOptions.None));
+            }
+
+            [Fact]
+            public void TwoFactorFilterRequestTheCorrectUrlWithApiOptions()
+            {
+                var client = Substitute.For<IGitHubClient>();
+                var orgMembersClient = new ObservableOrganizationMembersClient(client);
+
+                var options = new ApiOptions
+                {
+                    PageCount = 1,
+                    StartPage = 1,
+                    PageSize = 1
+                };
+
+                orgMembersClient.GetAll("org", OrganizationMembersFilter.TwoFactorAuthenticationDisabled, options);
+
+                client.Connection.Received(1).Get<List<User>>(
+                    new Uri("orgs/org/members?filter=2fa_disabled", UriKind.Relative), Arg.Is<IDictionary<string, string>>(d => d.Count == 2), null);
+            }
+
+            [Fact]
+            public void MemberRoleFilterRequestTheCorrectUrlWithApiOptions()
+            {
+                var client = Substitute.For<IGitHubClient>();
+                var orgMembersClient = new ObservableOrganizationMembersClient(client);
+
+                var options = new ApiOptions
+                {
+                    PageCount = 1,
+                    StartPage = 1,
+                    PageSize = 1
+                };
+
+                orgMembersClient.GetAll("org", OrganizationMembersRole.Member, options);
+
+                client.Connection.Received().Get<List<User>>(Arg.Is<Uri>(u => u.ToString() == "orgs/org/members?role=member"), Arg.Is<IDictionary<string, string>>(d => d.Count == 2), null);
+            }
+
+            [Fact]
+            public void TwoFactorFilterPlusMemberRoleRequestTheCorrectUrlWithApiOptions()
+            {
+                var client = Substitute.For<IGitHubClient>();
+                var orgMembersClient = new ObservableOrganizationMembersClient(client);
+
+                var options = new ApiOptions
+                {
+                    PageCount = 1,
+                    StartPage = 1,
+                    PageSize = 1
+                };
+
+                orgMembersClient.GetAll("org", OrganizationMembersFilter.TwoFactorAuthenticationDisabled, OrganizationMembersRole.Member, options);
+
+                client.Connection.Received().Get<List<User>>(Arg.Is<Uri>(u => u.ToString() == "orgs/org/members?filter=2fa_disabled&role=member"), Arg.Is<IDictionary<string, string>>(d => d.Count == 2), null);
             }
         }
 
@@ -45,10 +144,29 @@ namespace Octokit.Tests.Reactive
                 var gitHubClient = Substitute.For<IGitHubClient>();
                 var client = new ObservableOrganizationMembersClient(gitHubClient);
 
-                client.GetPublic("org");
+                client.GetAllPublic("org");
 
                 gitHubClient.Connection.Received(1).Get<List<User>>(
-                    new Uri("orgs/org/public_members", UriKind.Relative), null, null);
+                    new Uri("orgs/org/public_members", UriKind.Relative), Args.EmptyDictionary, null);
+            }
+
+            [Fact]
+            public void RequestsTheCorrectUrlWithApiOptions()
+            {
+                var gitHubClient = Substitute.For<IGitHubClient>();
+                var client = new ObservableOrganizationMembersClient(gitHubClient);
+
+                var options = new ApiOptions
+                {
+                    PageCount = 1,
+                    StartPage = 1,
+                    PageSize = 1
+                };
+
+                client.GetAllPublic("org", options);
+
+                gitHubClient.Connection.Received(1).Get<List<User>>(
+                    new Uri("orgs/org/public_members", UriKind.Relative), Arg.Is<IDictionary<string, string>>(d => d.Count == 2), null);
             }
 
             [Fact]
@@ -56,8 +174,12 @@ namespace Octokit.Tests.Reactive
             {
                 var client = new ObservableOrganizationMembersClient(Substitute.For<IGitHubClient>());
 
-                await AssertEx.Throws<ArgumentNullException>(async () => await client.GetPublic(null));
-                await AssertEx.Throws<ArgumentException>(async () => await client.GetPublic(""));
+                Assert.Throws<ArgumentNullException>(() => client.GetAllPublic(null));
+                Assert.Throws<ArgumentNullException>(() => client.GetAllPublic(null, ApiOptions.None));
+                Assert.Throws<ArgumentNullException>(() => client.GetAllPublic("org", null));
+
+                Assert.Throws<ArgumentException>(() => client.GetAllPublic(""));
+                Assert.Throws<ArgumentException>(() => client.GetAllPublic("", ApiOptions.None));
             }
         }
 
@@ -79,10 +201,10 @@ namespace Octokit.Tests.Reactive
             {
                 var client = new ObservableOrganizationMembersClient(Substitute.For<IGitHubClient>());
 
-                await AssertEx.Throws<ArgumentNullException>(async () => await client.CheckMember(null, "username"));
-                await AssertEx.Throws<ArgumentException>(async () => await client.CheckMember("", "username"));
-                await AssertEx.Throws<ArgumentNullException>(async () => await client.CheckMember("org", null));
-                await AssertEx.Throws<ArgumentException>(async () => await client.CheckMember("org", ""));
+                await Assert.ThrowsAsync<ArgumentNullException>(() => client.CheckMember(null, "username").ToTask());
+                await Assert.ThrowsAsync<ArgumentException>(() => client.CheckMember("", "username").ToTask());
+                await Assert.ThrowsAsync<ArgumentNullException>(() => client.CheckMember("org", null).ToTask());
+                await Assert.ThrowsAsync<ArgumentException>(() => client.CheckMember("org", "").ToTask());
             }
         }
 
@@ -104,10 +226,10 @@ namespace Octokit.Tests.Reactive
             {
                 var client = new ObservableOrganizationMembersClient(Substitute.For<IGitHubClient>());
 
-                await AssertEx.Throws<ArgumentNullException>(async () => await client.CheckMemberPublic(null, "username"));
-                await AssertEx.Throws<ArgumentException>(async () => await client.CheckMemberPublic("", "username"));
-                await AssertEx.Throws<ArgumentNullException>(async () => await client.CheckMemberPublic("org", null));
-                await AssertEx.Throws<ArgumentException>(async () => await client.CheckMemberPublic("org", ""));
+                await Assert.ThrowsAsync<ArgumentNullException>(() => client.CheckMemberPublic(null, "username").ToTask());
+                await Assert.ThrowsAsync<ArgumentException>(() => client.CheckMemberPublic("", "username").ToTask());
+                await Assert.ThrowsAsync<ArgumentNullException>(() => client.CheckMemberPublic("org", null).ToTask());
+                await Assert.ThrowsAsync<ArgumentException>(() => client.CheckMemberPublic("org", "").ToTask());
             }
         }
 
@@ -129,10 +251,10 @@ namespace Octokit.Tests.Reactive
             {
                 var client = new ObservableOrganizationMembersClient(Substitute.For<IGitHubClient>());
 
-                await AssertEx.Throws<ArgumentNullException>(async () => await client.Delete(null, "username"));
-                await AssertEx.Throws<ArgumentException>(async () => await client.Delete("", "username"));
-                await AssertEx.Throws<ArgumentNullException>(async () => await client.Delete("org", null));
-                await AssertEx.Throws<ArgumentException>(async () => await client.Delete("org", ""));
+                await Assert.ThrowsAsync<ArgumentNullException>(() => client.Delete(null, "username").ToTask());
+                await Assert.ThrowsAsync<ArgumentException>(() => client.Delete("", "username").ToTask());
+                await Assert.ThrowsAsync<ArgumentNullException>(() => client.Delete("org", null).ToTask());
+                await Assert.ThrowsAsync<ArgumentException>(() => client.Delete("org", "").ToTask());
             }
         }
 
@@ -154,10 +276,10 @@ namespace Octokit.Tests.Reactive
             {
                 var client = new ObservableOrganizationMembersClient(Substitute.For<IGitHubClient>());
 
-                await AssertEx.Throws<ArgumentNullException>(async () => await client.Publicize(null, "username"));
-                await AssertEx.Throws<ArgumentException>(async () => await client.Publicize("", "username"));
-                await AssertEx.Throws<ArgumentNullException>(async () => await client.Publicize("org", null));
-                await AssertEx.Throws<ArgumentException>(async () => await client.Publicize("org", ""));
+                await Assert.ThrowsAsync<ArgumentNullException>(() => client.Publicize(null, "username").ToTask());
+                await Assert.ThrowsAsync<ArgumentException>(() => client.Publicize("", "username").ToTask());
+                await Assert.ThrowsAsync<ArgumentNullException>(() => client.Publicize("org", null).ToTask());
+                await Assert.ThrowsAsync<ArgumentException>(() => client.Publicize("org", "").ToTask());
             }
         }
 
@@ -179,10 +301,60 @@ namespace Octokit.Tests.Reactive
             {
                 var client = new ObservableOrganizationMembersClient(Substitute.For<IGitHubClient>());
 
-                await AssertEx.Throws<ArgumentNullException>(async () => await client.Conceal(null, "username"));
-                await AssertEx.Throws<ArgumentException>(async () => await client.Conceal("", "username"));
-                await AssertEx.Throws<ArgumentNullException>(async () => await client.Conceal("org", null));
-                await AssertEx.Throws<ArgumentException>(async () => await client.Conceal("org", ""));
+                await Assert.ThrowsAsync<ArgumentNullException>(() => client.Conceal(null, "username").ToTask());
+                await Assert.ThrowsAsync<ArgumentException>(() => client.Conceal("", "username").ToTask());
+                await Assert.ThrowsAsync<ArgumentNullException>(() => client.Conceal("org", null).ToTask());
+                await Assert.ThrowsAsync<ArgumentException>(() => client.Conceal("org", "").ToTask());
+            }
+        }
+
+        public class TheGetAllPendingInvitationsMethod
+        {
+            [Fact]
+            public void RequestsTheCorrectUrl()
+            {
+                var gitHubClient = Substitute.For<IGitHubClient>();
+                var client = new ObservableOrganizationMembersClient(gitHubClient);
+
+                client.GetAllPendingInvitations("org");
+
+                gitHubClient.Connection.Received().GetAndFlattenAllPages<OrganizationMembershipInvitation>(
+                    Arg.Is<Uri>(u => u.ToString() == "orgs/org/invitations"),
+                    Args.EmptyDictionary,
+                    "application/vnd.github.korra-preview+json");
+            }
+
+            [Fact]
+            public void RequestsTheCorrectUrlWithStart()
+            {
+                var gitHubClient = Substitute.For<IGitHubClient>();
+                var client = new ObservableOrganizationMembersClient(gitHubClient);
+                var options = new ApiOptions
+                {
+                    PageCount = 1,
+                    PageSize = 1,
+                    StartPage = 1
+                };
+
+                client.GetAllPendingInvitations("org", options);
+
+                gitHubClient.Connection.Received().GetAndFlattenAllPages<OrganizationMembershipInvitation>(
+                    Arg.Is<Uri>(u => u.ToString() == "orgs/org/invitations"),
+                    Arg.Is<Dictionary<string, string>>(d => d.Count == 2),
+                    "application/vnd.github.korra-preview+json");
+            }
+
+            [Fact]
+            public async Task EnsuresNonNullArguments()
+            {
+                var client = new ObservableOrganizationMembersClient(Substitute.For<IGitHubClient>());
+
+                await Assert.ThrowsAsync<ArgumentNullException>(() => client.GetAllPendingInvitations(null).ToTask());
+                await Assert.ThrowsAsync<ArgumentException>(() => client.GetAllPendingInvitations("").ToTask());
+
+                await Assert.ThrowsAsync<ArgumentNullException>(() => client.GetAllPendingInvitations(null, ApiOptions.None).ToTask());
+                await Assert.ThrowsAsync<ArgumentException>(() => client.GetAllPendingInvitations("", ApiOptions.None).ToTask());
+                await Assert.ThrowsAsync<ArgumentNullException>(() => client.GetAllPendingInvitations("org", null).ToTask());
             }
         }
     }

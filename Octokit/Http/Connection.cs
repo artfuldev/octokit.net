@@ -4,9 +4,13 @@ using System.Globalization;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using Octokit.Internal;
+#if !HAS_ENVIRONMENT
+using System.Runtime.InteropServices;
+#endif
 
 namespace Octokit
 {
@@ -59,7 +63,7 @@ namespace Octokit
         /// the user agent for analytics purposes.
         /// </param>
         /// <param name="baseAddress">
-        /// The address to point this client to such as https://api.github.com or the URL to a GitHub Enterprise 
+        /// The address to point this client to such as https://api.github.com or the URL to a GitHub Enterprise
         /// instance</param>
         public Connection(ProductHeaderValue productInformation, Uri baseAddress)
             : this(productInformation, baseAddress, _anonymousCredentials)
@@ -87,11 +91,12 @@ namespace Octokit
         /// the user agent for analytics purposes.
         /// </param>
         /// <param name="baseAddress">
-        /// The address to point this client to such as https://api.github.com or the URL to a GitHub Enterprise 
+        /// The address to point this client to such as https://api.github.com or the URL to a GitHub Enterprise
         /// instance</param>
         /// <param name="credentialStore">Provides credentials to the client when making requests</param>
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Reliability", "CA2000:Dispose objects before losing scope")]
         public Connection(ProductHeaderValue productInformation, Uri baseAddress, ICredentialStore credentialStore)
-            : this(productInformation, baseAddress, credentialStore, new HttpClientAdapter(), new SimpleJsonSerializer())
+            : this(productInformation, baseAddress, credentialStore, new HttpClientAdapter(HttpMessageHandlerFactory.CreateDefault), new SimpleJsonSerializer())
         {
         }
 
@@ -103,7 +108,7 @@ namespace Octokit
         /// the user agent for analytics purposes.
         /// </param>
         /// <param name="baseAddress">
-        /// The address to point this client to such as https://api.github.com or the URL to a GitHub Enterprise 
+        /// The address to point this client to such as https://api.github.com or the URL to a GitHub Enterprise
         /// instance</param>
         /// <param name="credentialStore">Provides credentials to the client when making requests</param>
         /// <param name="httpClient">A raw <see cref="IHttpClient"/> used to make requests</param>
@@ -124,7 +129,7 @@ namespace Octokit
             if (!baseAddress.IsAbsoluteUri)
             {
                 throw new ArgumentException(
-                    String.Format(CultureInfo.InvariantCulture, "The base address '{0}' must be an absolute URI",
+                    string.Format(CultureInfo.InvariantCulture, "The base address '{0}' must be an absolute URI",
                         baseAddress), "baseAddress");
             }
 
@@ -132,8 +137,22 @@ namespace Octokit
             BaseAddress = baseAddress;
             _authenticator = new Authenticator(credentialStore);
             _httpClient = httpClient;
-            _jsonPipeline = new JsonHttpPipeline();
+            _jsonPipeline = new JsonHttpPipeline(serializer);
         }
+
+        /// <summary>
+        /// Gets the latest API Info - this will be null if no API calls have been made
+        /// </summary>
+        /// <returns><seealso cref="ApiInfo"/> representing the information returned as part of an Api call</returns>
+        public ApiInfo GetLastApiInfo()
+        {
+            // We've chosen to not wrap the _lastApiInfo in a lock.  Originally the code was returning a reference - so there was a danger of
+            // on thread writing to the object while another was reading.  Now we are cloning the ApiInfo on request - thus removing the need (or overhead)
+            // of putting locks in place.
+            // See https://github.com/octokit/octokit.net/pull/855#discussion_r36774884
+            return _lastApiInfo == null ? null : _lastApiInfo.Clone();
+        }
+        private ApiInfo _lastApiInfo;
 
         public Task<IApiResponse<T>> Get<T>(Uri uri, IDictionary<string, string> parameters, string accepts)
         {
@@ -147,6 +166,13 @@ namespace Octokit
             Ensure.ArgumentNotNull(uri, "uri");
 
             return SendData<T>(uri.ApplyParameters(parameters), HttpMethod.Get, null, accepts, null, cancellationToken);
+        }
+
+        public Task<IApiResponse<T>> Get<T>(Uri uri, TimeSpan timeout)
+        {
+            Ensure.ArgumentNotNull(uri, "uri");
+
+            return SendData<T>(uri, HttpMethod.Get, null, null, null, timeout, CancellationToken.None);
         }
 
         /// <summary>
@@ -184,12 +210,60 @@ namespace Octokit
             return SendData<T>(uri, HttpVerb.Patch, body, accepts, null, CancellationToken.None);
         }
 
+        /// <summary>
+        /// Performs an asynchronous HTTP POST request.
+        /// </summary>
+        /// <param name="uri">URI endpoint to send request to</param>
+        /// <returns><seealso cref="IResponse"/> representing the received HTTP response</returns>
+        public async Task<HttpStatusCode> Post(Uri uri)
+        {
+            Ensure.ArgumentNotNull(uri, "uri");
+
+            var response = await SendData<object>(uri, HttpMethod.Post, null, null, null, CancellationToken.None).ConfigureAwait(false);
+            return response.HttpResponse.StatusCode;
+        }
+
+        public async Task<HttpStatusCode> Post(Uri uri, object body, string accepts)
+        {
+            Ensure.ArgumentNotNull(uri, "uri");
+
+            var response = await SendData<object>(uri, HttpMethod.Post, body, accepts, null, CancellationToken.None).ConfigureAwait(false);
+            return response.HttpResponse.StatusCode;
+        }
+
+        public Task<IApiResponse<T>> Post<T>(Uri uri)
+        {
+            Ensure.ArgumentNotNull(uri, "uri");
+
+            return SendData<T>(uri, HttpMethod.Post, null, null, null, CancellationToken.None);
+        }
+
         public Task<IApiResponse<T>> Post<T>(Uri uri, object body, string accepts, string contentType)
         {
             Ensure.ArgumentNotNull(uri, "uri");
             Ensure.ArgumentNotNull(body, "body");
 
             return SendData<T>(uri, HttpMethod.Post, body, accepts, contentType, CancellationToken.None);
+        }
+
+        /// <summary>
+        /// Performs an asynchronous HTTP POST request.
+        /// Attempts to map the response body to an object of type <typeparamref name="T"/>
+        /// </summary>
+        /// <typeparam name="T">The type to map the response to</typeparam>
+        /// <param name="uri">URI endpoint to send request to</param>
+        /// <param name="body">The object to serialize as the body of the request</param>
+        /// <param name="accepts">Specifies accepted response media types.</param>
+        /// <param name="contentType">Specifies the media type of the request body</param>
+        /// <param name="twoFactorAuthenticationCode">Two Factor Authentication Code</param>
+        /// <returns><seealso cref="IResponse"/> representing the received HTTP response</returns>
+        public Task<IApiResponse<T>> Post<T>(Uri uri, object body, string accepts, string contentType, string twoFactorAuthenticationCode)
+        {
+            Ensure.ArgumentNotNull(uri, "uri");
+            Ensure.ArgumentNotNull(body, "body");
+            Ensure.ArgumentNotNullOrEmptyString(twoFactorAuthenticationCode, "twoFactorAuthenticationCode");
+
+            return SendData<T>(uri, HttpMethod.Post, body, accepts, contentType, CancellationToken.None, twoFactorAuthenticationCode);
         }
 
         public Task<IApiResponse<T>> Post<T>(Uri uri, object body, string accepts, string contentType, TimeSpan timeout)
@@ -219,6 +293,17 @@ namespace Octokit
                 HttpMethod.Put,
                 body,
                 null,
+                null,
+                CancellationToken.None,
+                twoFactorAuthenticationCode);
+        }
+
+        public Task<IApiResponse<T>> Put<T>(Uri uri, object body, string twoFactorAuthenticationCode, string accepts)
+        {
+            return SendData<T>(uri,
+                HttpMethod.Put,
+                body,
+                accepts,
                 null,
                 CancellationToken.None,
                 twoFactorAuthenticationCode);
@@ -265,7 +350,7 @@ namespace Octokit
             {
                 Method = method,
                 BaseAddress = baseAddress ?? BaseAddress,
-                Endpoint = uri,
+                Endpoint = uri
             };
 
             return SendDataInternal<T>(body, accepts, contentType, cancellationToken, twoFactorAuthenticationCode, request);
@@ -273,12 +358,12 @@ namespace Octokit
 
         Task<IApiResponse<T>> SendDataInternal<T>(object body, string accepts, string contentType, CancellationToken cancellationToken, string twoFactorAuthenticationCode, Request request)
         {
-            if (!String.IsNullOrEmpty(accepts))
+            if (!string.IsNullOrEmpty(accepts))
             {
                 request.Headers["Accept"] = accepts;
             }
 
-            if (!String.IsNullOrEmpty(twoFactorAuthenticationCode))
+            if (!string.IsNullOrEmpty(twoFactorAuthenticationCode))
             {
                 request.Headers["X-GitHub-OTP"] = twoFactorAuthenticationCode;
             }
@@ -308,7 +393,22 @@ namespace Octokit
                 BaseAddress = BaseAddress,
                 Endpoint = uri
             };
-            var response = await Run<object>(request, CancellationToken.None);
+            var response = await Run<object>(request, CancellationToken.None).ConfigureAwait(false);
+            return response.HttpResponse.StatusCode;
+        }
+
+        /// <summary>
+        /// Performs an asynchronous HTTP PATCH request.
+        /// </summary>
+        /// <param name="uri">URI endpoint to send request to</param>
+        /// <param name="accepts">Specifies accept response media type</param>
+        /// <returns><seealso cref="IResponse"/> representing the received HTTP response</returns>
+        public async Task<HttpStatusCode> Patch(Uri uri, string accepts)
+        {
+            Ensure.ArgumentNotNull(uri, "uri");
+            Ensure.ArgumentNotNull(accepts, "accepts");
+
+            var response = await SendData<object>(uri, new HttpMethod("PATCH"), null, accepts, null, CancellationToken.None).ConfigureAwait(false);
             return response.HttpResponse.StatusCode;
         }
 
@@ -327,7 +427,22 @@ namespace Octokit
                 BaseAddress = BaseAddress,
                 Endpoint = uri
             };
-            var response = await Run<object>(request, CancellationToken.None);
+            var response = await Run<object>(request, CancellationToken.None).ConfigureAwait(false);
+            return response.HttpResponse.StatusCode;
+        }
+
+        /// <summary>
+        /// Performs an asynchronous HTTP PUT request that expects an empty response.
+        /// </summary>
+        /// <param name="uri">URI endpoint to send request to</param>
+        /// <param name="accepts">Specifies accepted response media types.</param>
+        /// <returns>The returned <seealso cref="HttpStatusCode"/></returns>
+        public async Task<HttpStatusCode> Put(Uri uri, string accepts)
+        {
+            Ensure.ArgumentNotNull(uri, nameof(uri));
+            Ensure.ArgumentNotNull(accepts, nameof(accepts));
+
+            var response = await SendData<object>(uri, HttpMethod.Put, null, accepts, null, CancellationToken.None).ConfigureAwait(false);
             return response.HttpResponse.StatusCode;
         }
 
@@ -346,7 +461,21 @@ namespace Octokit
                 BaseAddress = BaseAddress,
                 Endpoint = uri
             };
-            var response = await Run<object>(request, CancellationToken.None);
+            var response = await Run<object>(request, CancellationToken.None).ConfigureAwait(false);
+            return response.HttpResponse.StatusCode;
+        }
+
+        /// <summary>
+        /// Performs an asynchronous HTTP DELETE request that expects an empty response.
+        /// </summary>
+        /// <param name="uri">URI endpoint to send request to</param>
+        /// <param name="twoFactorAuthenticationCode">Two Factor Code</param>
+        /// <returns>The returned <seealso cref="HttpStatusCode"/></returns>
+        public async Task<HttpStatusCode> Delete(Uri uri, string twoFactorAuthenticationCode)
+        {
+            Ensure.ArgumentNotNull(uri, "uri");
+
+            var response = await SendData<object>(uri, HttpMethod.Delete, null, null, null, CancellationToken.None, twoFactorAuthenticationCode).ConfigureAwait(false);
             return response.HttpResponse.StatusCode;
         }
 
@@ -368,8 +497,54 @@ namespace Octokit
                 BaseAddress = BaseAddress,
                 Endpoint = uri
             };
-            var response = await Run<object>(request, CancellationToken.None);
+            var response = await Run<object>(request, CancellationToken.None).ConfigureAwait(false);
             return response.HttpResponse.StatusCode;
+        }
+
+        /// <summary>
+        /// Performs an asynchronous HTTP DELETE request that expects an empty response.
+        /// </summary>
+        /// <param name="uri">URI endpoint to send request to</param>
+        /// <param name="data">The object to serialize as the body of the request</param>
+        /// <param name="accepts">Specifies accept response media type</param>
+        /// <returns>The returned <seealso cref="HttpStatusCode"/></returns>
+        public async Task<HttpStatusCode> Delete(Uri uri, object data, string accepts)
+        {
+            Ensure.ArgumentNotNull(uri, "uri");
+            Ensure.ArgumentNotNull(accepts, "accepts");
+
+            var response = await SendData<object>(uri, HttpMethod.Delete, data, accepts, null, CancellationToken.None).ConfigureAwait(false);
+            return response.HttpResponse.StatusCode;
+        }
+
+        /// <summary>
+        /// Performs an asynchronous HTTP DELETE request.
+        /// </summary>
+        /// <typeparam name="T">The API resource's type.</typeparam>
+        /// <param name="uri">URI endpoint to send request to</param>
+        /// <param name="data">The object to serialize as the body of the request</param>
+        public Task<IApiResponse<T>> Delete<T>(Uri uri, object data)
+        {
+            Ensure.ArgumentNotNull(uri, "uri");
+            Ensure.ArgumentNotNull(data, "data");
+
+            return SendData<T>(uri, HttpMethod.Delete, data, null, null, CancellationToken.None);
+        }
+
+        /// <summary>
+        /// Performs an asynchronous HTTP DELETE request.
+        /// Attempts to map the response body to an object of type <typeparamref name="T"/>
+        /// </summary>
+        /// <typeparam name="T">The type to map the response to</typeparam>
+        /// <param name="uri">URI endpoint to send request to</param>
+        /// <param name="data">The object to serialize as the body of the request</param>
+        /// <param name="accepts">Specifies accept response media type</param>
+        public Task<IApiResponse<T>> Delete<T>(Uri uri, object data, string accepts)
+        {
+            Ensure.ArgumentNotNull(uri, "uri");
+            Ensure.ArgumentNotNull(accepts, "accepts");
+
+            return SendData<T>(uri, HttpMethod.Delete, data, accepts, null, CancellationToken.None);
         }
 
         /// <summary>
@@ -391,9 +566,9 @@ namespace Octokit
         /// Gets or sets the credentials used by the connection.
         /// </summary>
         /// <remarks>
-        /// You can use this property if you only have a single hard-coded credential. Otherwise, pass in an 
-        /// <see cref="ICredentialStore"/> to the constructor. 
-        /// Setting this property will change the <see cref="ICredentialStore"/> to use 
+        /// You can use this property if you only have a single hard-coded credential. Otherwise, pass in an
+        /// <see cref="ICredentialStore"/> to the constructor.
+        /// Setting this property will change the <see cref="ICredentialStore"/> to use
         /// the default <see cref="InMemoryCredentialStore"/> with just these credentials.
         /// </remarks>
         public Credentials Credentials
@@ -414,12 +589,12 @@ namespace Octokit
 
         async Task<IApiResponse<string>> GetHtml(IRequest request)
         {
-            request.Headers.Add("Accept", "application/vnd.github.html");
-            var response = await RunRequest(request, CancellationToken.None);
+            request.Headers.Add("Accept", AcceptHeaders.StableVersionHtml);
+            var response = await RunRequest(request, CancellationToken.None).ConfigureAwait(false);
             return new ApiResponse<string>(response, response.Body as string);
         }
 
-        async Task<IApiResponse<T>> Run<T>(IRequest request, CancellationToken	cancellationToken)
+        async Task<IApiResponse<T>> Run<T>(IRequest request, CancellationToken cancellationToken)
         {
             _jsonPipeline.SerializeRequest(request);
             var response = await RunRequest(request, cancellationToken).ConfigureAwait(false);
@@ -432,6 +607,11 @@ namespace Octokit
             request.Headers.Add("User-Agent", UserAgent);
             await _authenticator.Apply(request).ConfigureAwait(false);
             var response = await _httpClient.Send(request, cancellationToken).ConfigureAwait(false);
+            if (response != null)
+            {
+                // Use the clone method to avoid keeping hold of the original (just in case it effect the lifetime of the whole response
+                _lastApiInfo = response.ApiInfo.Clone();
+            }
             HandleErrors(response);
             return response;
         }
@@ -442,7 +622,8 @@ namespace Octokit
                 { HttpStatusCode.Unauthorized, GetExceptionForUnauthorized },
                 { HttpStatusCode.Forbidden, GetExceptionForForbidden },
                 { HttpStatusCode.NotFound, response => new NotFoundException(response) },
-                { (HttpStatusCode)422, response => new ApiValidationException(response) }
+                { (HttpStatusCode)422, response => new ApiValidationException(response) },
+                { (HttpStatusCode)451, response => new LegalRestrictionException(response) }
             };
 
         static void HandleErrors(IResponse response)
@@ -471,19 +652,31 @@ namespace Octokit
         static Exception GetExceptionForForbidden(IResponse response)
         {
             string body = response.Body as string ?? "";
-            return body.Contains("rate limit exceeded")
-                ? new RateLimitExceededException(response)
-                : body.Contains("number of login attempts exceeded")
-                    ? new LoginAttemptsExceededException(response)
-                    : new ForbiddenException(response);
+
+            if (body.Contains("rate limit exceeded"))
+            {
+                return new RateLimitExceededException(response);
+            }
+
+            if (body.Contains("number of login attempts exceeded"))
+            {
+                return new LoginAttemptsExceededException(response);
+            }
+
+            if (body.Contains("abuse-rate-limits") || body.Contains("abuse detection mechanism"))
+            {
+                return new AbuseException(response);
+            }
+
+            return new ForbiddenException(response);
         }
 
-        static TwoFactorType ParseTwoFactorType(IResponse restResponse)
+        internal static TwoFactorType ParseTwoFactorType(IResponse restResponse)
         {
-            if (restResponse.Headers == null || !restResponse.Headers.Any()) return TwoFactorType.None;
+            if (restResponse == null || restResponse.Headers == null || !restResponse.Headers.Any()) return TwoFactorType.None;
             var otpHeader = restResponse.Headers.FirstOrDefault(header =>
                 header.Key.Equals("X-GitHub-OTP", StringComparison.OrdinalIgnoreCase));
-            if (String.IsNullOrEmpty(otpHeader.Value)) return TwoFactorType.None;
+            if (string.IsNullOrEmpty(otpHeader.Value)) return TwoFactorType.None;
             var factorType = otpHeader.Value;
             var parts = factorType.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries);
             if (parts.Length > 0 && parts[0] == "required")
@@ -504,24 +697,60 @@ namespace Octokit
 
         static string FormatUserAgent(ProductHeaderValue productInformation)
         {
-            return string.Format(CultureInfo.InvariantCulture,
-                "{0} ({1} {2}; {3}; {4}; Octokit {5})",
+            return string.Format(CultureInfo.InvariantCulture, "{0} ({1}; {2}; Octokit {3})",
                 productInformation,
-#if NETFX_CORE
-                // Microsoft doesn't want you changing your Windows Store Application based on the processor or
-                // Windows version. If we really wanted this information, we could do a best guess based on
-                // this approach: http://attackpattern.com/2013/03/device-information-in-windows-8-store-apps/
-                // But I don't think we care all that much.
-                "WindowsRT",
-                "8+",
-                "unknown",
+                GetPlatformInformation(),
+                GetCultureInformation(),
+                GetVersionInformation());
+        }
+
+        private static string _platformInformation;
+        static string GetPlatformInformation()
+        {
+            if (string.IsNullOrEmpty(_platformInformation))
+            {
+                try
+                {
+                    _platformInformation = string.Format(CultureInfo.InvariantCulture,
+#if !HAS_ENVIRONMENT
+                        "{0}; {1}",
+                        RuntimeInformation.OSDescription.Trim(),
+                        RuntimeInformation.OSArchitecture.ToString().ToLowerInvariant().Trim()
 #else
-                Environment.OSVersion.Platform,
-                Environment.OSVersion.Version.ToString(3),
-                Environment.Is64BitOperatingSystem ? "amd64" : "x86",
+                        "{0} {1}; {2}",
+                        Environment.OSVersion.Platform,
+                        Environment.OSVersion.Version.ToString(3),
+                        Environment.Is64BitOperatingSystem ? "amd64" : "x86"
 #endif
-                CultureInfo.CurrentCulture.Name,
-                AssemblyVersionInformation.Version);
+                        );
+                }
+                catch
+                {
+                    _platformInformation = "Unknown Platform";
+                }
+            }
+
+            return _platformInformation;
+        }
+
+        static string GetCultureInformation()
+        {
+            return CultureInfo.CurrentCulture.Name;
+        }
+
+        private static string _versionInformation;
+        static string GetVersionInformation()
+        {
+            if (string.IsNullOrEmpty(_versionInformation))
+            {
+                _versionInformation = typeof(IGitHubClient)
+                    .GetTypeInfo()
+                    .Assembly
+                    .GetCustomAttribute<AssemblyInformationalVersionAttribute>()
+                    .InformationalVersion;
+            }
+
+            return _versionInformation;
         }
     }
 }

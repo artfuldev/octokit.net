@@ -1,7 +1,8 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Net;
 using System.Threading.Tasks;
 using NSubstitute;
-using Octokit.Tests.Helpers;
 using Xunit;
 
 namespace Octokit.Tests.Clients
@@ -12,12 +13,26 @@ namespace Octokit.Tests.Clients
     /// </summary>
     public class TeamsClientTests
     {
-        public class TheConstructor
+        public class TheCtor
         {
             [Fact]
             public void EnsuresNonNullArguments()
             {
                 Assert.Throws<ArgumentNullException>(() => new TeamsClient(null));
+            }
+        }
+
+        public class TheGetMethod
+        {
+            [Fact]
+            public void RequestsTheCorrectUrl()
+            {
+                var connection = Substitute.For<IApiConnection>();
+                var client = new TeamsClient(connection);
+
+                client.Get(1);
+
+                connection.Received().Get<Team>(Arg.Is<Uri>(u => u.ToString() == "teams/1"));
             }
         }
 
@@ -31,7 +46,9 @@ namespace Octokit.Tests.Clients
 
                 client.GetAll("orgName");
 
-                connection.Received().GetAll<Team>(Arg.Is<Uri>(u => u.ToString() == "orgs/orgName/teams"));
+                connection.Received().GetAll<Team>(
+                    Arg.Is<Uri>(u => u.ToString() == "orgs/orgName/teams"),
+                    Args.ApiOptions);
             }
 
             [Fact]
@@ -40,6 +57,7 @@ namespace Octokit.Tests.Clients
                 var teams = new TeamsClient(Substitute.For<IApiConnection>());
 
                 await Assert.ThrowsAsync<ArgumentNullException>(() => teams.GetAll(null));
+                await Assert.ThrowsAsync<ArgumentNullException>(() => teams.GetAll("orgName", null));
             }
         }
 
@@ -51,13 +69,15 @@ namespace Octokit.Tests.Clients
                 var connection = Substitute.For<IApiConnection>();
                 var client = new TeamsClient(connection);
 
-                client.GetMembers(1);
+                client.GetAllMembers(1);
 
-                connection.Received().GetAll<User>(Arg.Is<Uri>(u => u.ToString() == "teams/1/members"));
+                connection.Received().GetAll<User>(
+                    Arg.Is<Uri>(u => u.ToString() == "teams/1/members"),
+                    Args.ApiOptions);
             }
         }
 
-        public class TheCreateTeamMethod
+        public class TheCreateMethod
         {
             [Fact]
             public void RequestsTheCorrectUrl()
@@ -121,28 +141,50 @@ namespace Octokit.Tests.Clients
             }
         }
 
-        public class TheIsMemberMethod
+        public class TheAddMembershipMethod
         {
             [Fact]
-            public void EnsuresNonNullLogin()
+            public async Task RequestsTheCorrectUrl()
             {
                 var connection = Substitute.For<IApiConnection>();
+
                 var client = new TeamsClient(connection);
 
-                AssertEx.Throws<ArgumentNullException>(() => client.IsMember(1, null));
+                await client.AddMembership(1, "user");
+
+                connection.Received().Put<Dictionary<string, string>>(
+                    Arg.Is<Uri>(u => u.ToString() == "teams/1/memberships/user"),
+                    Args.Object);
             }
 
             [Fact]
-            public void EnsuresNonEmptyLogin()
+            public async Task AllowsEmptyBody()
+            {
+                var connection = Substitute.For<IConnection>();
+
+                var apiConnection = new ApiConnection(connection);
+
+                var client = new TeamsClient(apiConnection);
+
+                await client.AddMembership(1, "user");
+
+                connection.Received().Put<Dictionary<string, string>>(
+                    Arg.Is<Uri>(u => u.ToString() == "teams/1/memberships/user"),
+                    Arg.Is<object>(u => u == RequestBody.Empty));
+            }
+
+            [Fact]
+            public async Task EnsuresNonNullOrEmptyLogin()
             {
                 var connection = Substitute.For<IApiConnection>();
                 var client = new TeamsClient(connection);
 
-                AssertEx.Throws<ArgumentException>(() => client.IsMember(1, ""));
+                await Assert.ThrowsAsync<ArgumentNullException>(() => client.AddMembership(1, null));
+                await Assert.ThrowsAsync<ArgumentException>(() => client.AddMembership(1, ""));
             }
         }
 
-        public class TheAddMemberMethod
+        public class TheGetAllForCurrentMethod
         {
             [Fact]
             public void RequestsTheCorrectUrl()
@@ -150,80 +192,174 @@ namespace Octokit.Tests.Clients
                 var connection = Substitute.For<IApiConnection>();
                 var client = new TeamsClient(connection);
 
-                client.AddMember(1, "user");
+                client.GetAllForCurrent();
 
-                connection.Received().Put(Arg.Is<Uri>(u => u.ToString() == "teams/1/memberships/user"));
+                connection.Received().GetAll<Team>(
+                    Arg.Is<Uri>(u => u.ToString() == "user/teams"),
+                    Args.ApiOptions);
             }
         }
 
-        public class TheRemoveMemberMethod
+        public class TheGetMembershipMethod
         {
             [Fact]
-            public void RequestsTheCorrectUrl()
+            public async Task EnsuresNonNullLogin()
             {
                 var connection = Substitute.For<IApiConnection>();
                 var client = new TeamsClient(connection);
-                client.RemoveMember(1, "user");
 
-                connection.Received().Delete(Arg.Is<Uri>(u => u.ToString() == "teams/1/memberships/user"));
+                await Assert.ThrowsAsync<ArgumentNullException>(() => client.GetMembership(1, null));
+            }
+
+            [Fact]
+            public async Task EnsuresNonEmptyLogin()
+            {
+                var connection = Substitute.For<IApiConnection>();
+                var client = new TeamsClient(connection);
+
+                await Assert.ThrowsAsync<ArgumentException>(() => client.GetMembership(1, ""));
             }
         }
 
-        public class TheGetRepositoriesMethod
+        public class TheRemoveMembershipMethod
         {
             [Fact]
-            public void RequestsTheCorrectUrl()
+            public async Task RequestsTheCorrectUrl()
             {
                 var connection = Substitute.For<IApiConnection>();
                 var client = new TeamsClient(connection);
-                client.GetRepositories(1);
+                await client.RemoveMembership(1, "user");
 
-                connection.Received().GetAll<Repository>(Arg.Is<Uri>(u => u.ToString() == "teams/1/repos"));
+                connection.Connection.Received().Delete(Arg.Is<Uri>(u => u.ToString() == "teams/1/memberships/user"));
+            }
+
+            [Fact]
+            public async Task EnsuresNonNullOrEmptyLogin()
+            {
+                var connection = Substitute.For<IApiConnection>();
+                var client = new TeamsClient(connection);
+
+                await Assert.ThrowsAsync<ArgumentNullException>(() => client.RemoveMembership(1, null));
+                await Assert.ThrowsAsync<ArgumentException>(() => client.RemoveMembership(1, ""));
+            }
+        }
+
+        public class TheGetAllRepositoriesMethod
+        {
+            [Fact]
+            public async Task RequestsTheCorrectUrl()
+            {
+                var connection = Substitute.For<IApiConnection>();
+                var client = new TeamsClient(connection);
+
+                await client.GetAllRepositories(1);
+
+                connection.Received().GetAll<Repository>(
+                    Arg.Is<Uri>(u => u.ToString() == "teams/1/repos"),
+                    null,
+                    "application/vnd.github.ironman-preview+json",
+                    Args.ApiOptions);
             }
         }
 
         public class TheRemoveRepositoryMethod
         {
             [Fact]
-            public void RequestsTheCorrectUrl()
+            public async Task RequestsTheCorrectUrl()
             {
                 var connection = Substitute.For<IApiConnection>();
                 var client = new TeamsClient(connection);
-                client.RemoveRepository(1, "org", "repo");
+                await client.RemoveRepository(1, "org", "repo");
 
-                connection.Received().Delete(Arg.Is<Uri>(u => u.ToString() == "teams/1/repos/org/repo"));
+                connection.Connection.Received().Delete(Arg.Is<Uri>(u => u.ToString() == "teams/1/repos/org/repo"));
             }
         }
 
         public class TheAddRepositoryMethod
         {
             [Fact]
-            public void RequestsTheCorrectUrl()
+            public async Task EnsuresNonNullOrEmptyArguments()
             {
                 var connection = Substitute.For<IApiConnection>();
                 var client = new TeamsClient(connection);
-                client.AddRepository(1, "org", "repo");
 
-                connection.Received().Put(Arg.Is<Uri>(u => u.ToString() == "teams/1/repos/org/repo"));
+                // Check owner arguments.
+                await Assert.ThrowsAsync<ArgumentNullException>(() => client.RemoveRepository(1, null, "repoName"));
+                await Assert.ThrowsAsync<ArgumentException>(() => client.RemoveRepository(1, "", "repoName"));
+
+                // Check repo arguments.
+                await Assert.ThrowsAsync<ArgumentNullException>(() => client.RemoveRepository(1, "ownerName", null));
+                await Assert.ThrowsAsync<ArgumentException>(() => client.RemoveRepository(1, "ownerName", ""));
+            }
+
+
+            [Fact]
+            public async Task RequestsTheCorrectUrl()
+            {
+                var connection = Substitute.For<IApiConnection>();
+                var client = new TeamsClient(connection);
+                await client.AddRepository(1, "org", "repo");
+
+                connection.Connection.Received().Put(Arg.Is<Uri>(u => u.ToString() == "teams/1/repos/org/repo"));
             }
 
             [Fact]
-            public void EnsureNonNullOrg()
+            public async Task AddOrUpdatePermission()
             {
                 var connection = Substitute.For<IApiConnection>();
                 var client = new TeamsClient(connection);
+                var newPermission = new RepositoryPermissionRequest(Permission.Admin);
 
-                AssertEx.Throws<ArgumentException>(() => client.AddRepository(1, null, "Repo Name"));
+                await client.AddRepository(1, "org", "repo", newPermission);
+
+                connection.Connection.Received().Put<HttpStatusCode>(Arg.Is<Uri>(u => u.ToString() == "teams/1/repos/org/repo"), Arg.Any<object>(), "", "application/vnd.github.ironman-preview+json");
             }
 
             [Fact]
-            public void EnsureNonNullRepo()
+            public async Task EnsureNonNullOrg()
             {
                 var connection = Substitute.For<IApiConnection>();
                 var client = new TeamsClient(connection);
 
-                AssertEx.Throws<ArgumentException>(() => client.AddRepository(1, "org name", null));
+                await Assert.ThrowsAsync<ArgumentNullException>(() => client.AddRepository(1, null, "Repo Name"));
+            }
+        }
 
+        public class TheIsRepositoryManagedByTeamMethod
+        {
+            [Fact]
+            public async Task EnsuresNonNullOrEmptyArguments()
+            {
+                var connection = Substitute.For<IApiConnection>();
+                var client = new TeamsClient(connection);
+
+                await Assert.ThrowsAsync<ArgumentNullException>(() => client.AddRepository(1, "org name", null));
+
+                // Check owner arguments.
+                await Assert.ThrowsAsync<ArgumentNullException>(() => client.IsRepositoryManagedByTeam(1, null, "repoName"));
+                await Assert.ThrowsAsync<ArgumentException>(() => client.IsRepositoryManagedByTeam(1, "", "repoName"));
+
+                // Check repo arguments.
+                await Assert.ThrowsAsync<ArgumentNullException>(() => client.IsRepositoryManagedByTeam(1, "ownerName", null));
+                await Assert.ThrowsAsync<ArgumentException>(() => client.IsRepositoryManagedByTeam(1, "ownerName", ""));
+            }
+        }
+
+        public class TheGetAllPendingInvitationsMethod
+        {
+            [Fact]
+            public async Task RequestsTheCorrectUrl()
+            {
+                var connection = Substitute.For<IApiConnection>();
+                var client = new TeamsClient(connection);
+
+                await client.GetAllPendingInvitations(1);
+
+                connection.Received().GetAll<OrganizationMembershipInvitation>(
+                    Arg.Is<Uri>(u => u.ToString() == "teams/1/invitations"),
+                    null,
+                    "application/vnd.github.korra-preview+json",
+                    Args.ApiOptions);
             }
         }
     }

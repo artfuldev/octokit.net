@@ -1,5 +1,4 @@
-﻿using System;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Globalization;
 
 namespace Octokit
@@ -38,7 +37,7 @@ namespace Octokit
         {
             get
             {
-                return String.Format(CultureInfo.InvariantCulture, "Name: {0} Email: {1}", Name, Email);
+                return string.Format(CultureInfo.InvariantCulture, "Name: {0} Email: {1}", Name, Email);
             }
         }
     }

@@ -1,4 +1,3 @@
-using System;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
@@ -67,8 +66,8 @@ namespace Octokit
         {
             get
             {
-                return String.Format(CultureInfo.InvariantCulture,
-                    "Author: Id: {0} Login: {1}",Id, Login);
+                return string.Format(CultureInfo.InvariantCulture,
+                    "Author: Id: {0} Login: {1}", Id, Login);
             }
         }
     }

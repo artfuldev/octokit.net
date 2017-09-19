@@ -30,7 +30,21 @@ namespace Octokit
         /// <returns>The <see cref="EmailAddress"/>es for the authenticated user.</returns>
         public Task<IReadOnlyList<EmailAddress>> GetAll()
         {
-            return ApiConnection.GetAll<EmailAddress>(ApiUrls.Emails());
+            return GetAll(ApiOptions.None);
+        }
+
+        /// <summary>
+        /// Gets all email addresses for the authenticated user.
+        /// </summary>
+        /// <remarks>
+        /// http://developer.github.com/v3/users/emails/#list-email-addresses-for-a-user
+        /// </remarks>
+        /// <returns>The <see cref="EmailAddress"/>es for the authenticated user.</returns>
+        public Task<IReadOnlyList<EmailAddress>> GetAll(ApiOptions options)
+        {
+            Ensure.ArgumentNotNull(options, "options");
+
+            return ApiConnection.GetAll<EmailAddress>(ApiUrls.Emails(), options);
         }
 
         /// <summary>
@@ -44,7 +58,7 @@ namespace Octokit
         public Task<IReadOnlyList<EmailAddress>> Add(params string[] emailAddresses)
         {
             Ensure.ArgumentNotNull(emailAddresses, "emailAddresses");
-            if (emailAddresses.Any(String.IsNullOrWhiteSpace))
+            if (emailAddresses.Any(string.IsNullOrWhiteSpace))
                 throw new ArgumentException("Cannot contain null, empty or whitespace values", "emailAddresses");
 
             return ApiConnection.Post<IReadOnlyList<EmailAddress>>(ApiUrls.Emails(), emailAddresses);
@@ -61,7 +75,7 @@ namespace Octokit
         public Task Delete(params string[] emailAddresses)
         {
             Ensure.ArgumentNotNull(emailAddresses, "emailAddresses");
-            if (emailAddresses.Any(String.IsNullOrWhiteSpace))
+            if (emailAddresses.Any(string.IsNullOrWhiteSpace))
                 throw new ArgumentException("Cannot contain null, empty or whitespace values", "emailAddresses");
 
             return ApiConnection.Delete(ApiUrls.Emails(), emailAddresses);

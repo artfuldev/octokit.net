@@ -1,7 +1,10 @@
 ﻿using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Net;
+#if !NO_SERIALIZABLE
 using System.Runtime.Serialization;
+#endif
+using System.Security;
 using Octokit.Internal;
 
 namespace Octokit
@@ -9,7 +12,7 @@ namespace Octokit
     /// <summary>
     /// Represents errors that occur from the GitHub API.
     /// </summary>
-#if !NETFX_CORE
+#if !NO_SERIALIZABLE
     [Serializable]
 #endif
     [SuppressMessage("Microsoft.Design", "CA1032:ImplementStandardExceptionConstructors",
@@ -67,6 +70,7 @@ namespace Octokit
 
             StatusCode = response.StatusCode;
             ApiError = GetApiErrorFromExceptionMessage(response);
+            HttpResponse = response;
         }
 
         /// <summary>
@@ -97,6 +101,8 @@ namespace Octokit
             StatusCode = statusCode;
         }
 
+        public IResponse HttpResponse { get; private set; }
+
         public override string Message
         {
             get { return ApiErrorMessageSafe ?? "An error occurred with this API request"; }
@@ -123,7 +129,7 @@ namespace Octokit
         {
             try
             {
-                if (!String.IsNullOrEmpty(responseContent))
+                if (!string.IsNullOrEmpty(responseContent))
                 {
                     return _jsonSerializer.Deserialize<ApiError>(responseContent) ?? new ApiError(responseContent);
                 }
@@ -135,7 +141,7 @@ namespace Octokit
             return new ApiError(responseContent);
         }
 
-#if !NETFX_CORE
+#if !NO_SERIALIZABLE
         /// <summary>
         /// Constructs an instance of ApiException.
         /// </summary>
@@ -151,10 +157,11 @@ namespace Octokit
             : base(info, context)
         {
             if (info == null) return;
-            StatusCode = (HttpStatusCode)(info.GetInt32("HttpStatusCode"));
-            ApiError = (ApiError)(info.GetValue("ApiError", typeof(ApiError)));
+            StatusCode = (HttpStatusCode)info.GetInt32("HttpStatusCode");
+            ApiError = (ApiError)info.GetValue("ApiError", typeof(ApiError));
         }
 
+        [SecurityCritical]
         public override void GetObjectData(SerializationInfo info, StreamingContext context)
         {
             base.GetObjectData(info, context);
@@ -173,8 +180,37 @@ namespace Octokit
         {
             get
             {
-                return ApiError != null ? ApiError.Message : null;
+                if (ApiError != null && !string.IsNullOrWhiteSpace(ApiError.Message))
+                {
+                    return ApiError.Message;
+                }
+
+                return null;
             }
+        }
+
+        /// <summary>
+        /// Get the inner http response body from the API response
+        /// </summary>
+        /// <remarks>
+        /// Returns empty string if HttpResponse is not populated or if
+        /// response body is not a string
+        /// </remarks>
+        protected string HttpResponseBodySafe
+        {
+            get
+            {
+                return HttpResponse != null
+                       && !HttpResponse.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase)
+                       && HttpResponse.Body is string
+                    ? (string)HttpResponse.Body : string.Empty;
+            }
+        }
+
+        public override string ToString()
+        {
+            var original = base.ToString();
+            return original + Environment.NewLine + HttpResponseBodySafe;
         }
     }
 }

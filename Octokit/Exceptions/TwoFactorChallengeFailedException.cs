@@ -1,11 +1,13 @@
 ﻿using System;
 using System.Diagnostics.CodeAnalysis;
-using System.Net;
+#if !NO_SERIALIZABLE
 using System.Runtime.Serialization;
+#endif
+using System.Security;
 
 namespace Octokit
 {
-#if !NETFX_CORE
+#if !NO_SERIALIZABLE
     /// <summary>
     /// Represents a failed 2FA challenge from the API
     /// </summary>
@@ -13,23 +15,26 @@ namespace Octokit
 #endif
     [SuppressMessage("Microsoft.Design", "CA1032:ImplementStandardExceptionConstructors",
         Justification = "These exceptions are specific to the GitHub API and not general purpose exceptions")]
-    public class TwoFactorChallengeFailedException : AuthorizationException
+    public class TwoFactorChallengeFailedException : TwoFactorAuthorizationException
     {
         /// <summary>
         /// Constructs an instance of TwoFactorChallengeFailedException
         /// </summary>
-        public TwoFactorChallengeFailedException() :
-            base(HttpStatusCode.Unauthorized, null)
+        public TwoFactorChallengeFailedException() : base(TwoFactorType.None, null)
         {
         }
 
         /// <summary>
         /// Constructs an instance of TwoFactorChallengeFailedException
         /// </summary>
+        /// <param name="authorizationCode">The authorization code that was incorrect</param>
         /// <param name="innerException">The inner exception</param>
-        public TwoFactorChallengeFailedException(Exception innerException)
-            : base(HttpStatusCode.Unauthorized, innerException)
+        public TwoFactorChallengeFailedException(
+            string authorizationCode,
+            ApiException innerException)
+            : base(ParseTwoFactorType(innerException), innerException)
         {
+            AuthorizationCode = authorizationCode;
         }
 
         public override string Message
@@ -37,9 +42,16 @@ namespace Octokit
             get { return "The two-factor authentication code supplied is not correct"; }
         }
 
-#if !NETFX_CORE
+        public string AuthorizationCode { get; private set; }
+
+        static TwoFactorType ParseTwoFactorType(ApiException exception)
+        {
+            return exception == null ? TwoFactorType.None : Connection.ParseTwoFactorType(exception.HttpResponse);
+        }
+
+#if !NO_SERIALIZABLE
         /// <summary>
-        /// Constructs an instance of TwoFactorChallengeFailedException
+        /// Constructs an instance of TwoFactorChallengeFailedException.
         /// </summary>
         /// <param name="info">
         /// The <see cref="SerializationInfo"/> that holds the
@@ -52,6 +64,14 @@ namespace Octokit
         protected TwoFactorChallengeFailedException(SerializationInfo info, StreamingContext context)
             : base(info, context)
         {
+            if (info == null) return;
+            AuthorizationCode = info.GetString("AuthorizationCode");
+        }
+        [SecurityCritical]
+        public override void GetObjectData(SerializationInfo info, StreamingContext context)
+        {
+            base.GetObjectData(info, context);
+            info.AddValue("AuthorizationCode", AuthorizationCode);
         }
 #endif
     }

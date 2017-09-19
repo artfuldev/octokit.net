@@ -1,7 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Globalization;
-
 
 namespace Octokit.Internal
 {
@@ -35,7 +33,7 @@ namespace Octokit.Internal
         {
             get
             {
-                return String.Format(CultureInfo.InvariantCulture, "TotalCount: {0}", TotalCount);
+                return string.Format(CultureInfo.InvariantCulture, "TotalCount: {0}", TotalCount);
             }
         }
     }

@@ -1,5 +1,4 @@
-﻿using System;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Globalization;
 using Octokit.Helpers;
 
@@ -8,14 +7,29 @@ namespace Octokit
     /// <summary>
     /// Base class with common properties for all the Repository Content Request APIs.
     /// </summary>
-    /// 
     public abstract class ContentRequest
     {
+        /// <summary>
+        /// Initializes a new instance of the <see cref="ContentRequest"/> class.
+        /// </summary>
+        /// <param name="message">The message.</param>
         protected ContentRequest(string message)
         {
             Ensure.ArgumentNotNullOrEmptyString(message, "message");
-            
+
             Message = message;
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="ContentRequest"/> class.
+        /// </summary>
+        /// <param name="message">The message.</param>
+        /// <param name="branch">The branch the request is for.</param>
+        protected ContentRequest(string message, string branch) : this(message)
+        {
+            Ensure.ArgumentNotNullOrEmptyString(branch, "branch");
+
+            Branch = branch;
         }
 
         /// <summary>
@@ -31,12 +45,12 @@ namespace Octokit
         /// <summary>
         /// Specifies the committer to use for the commit. This is optional.
         /// </summary>
-        public SignatureResponse Committer { get; set; }
+        public Committer Committer { get; set; }
 
         /// <summary>
         /// Specifies the author to use for the commit. This is optional.
         /// </summary>
-        public SignatureResponse Author { get; set; }
+        public Committer Author { get; set; }
     }
 
     /// <summary>
@@ -45,7 +59,25 @@ namespace Octokit
     [DebuggerDisplay("{DebuggerDisplay,nq}")]
     public class DeleteFileRequest : ContentRequest
     {
+        /// <summary>
+        /// Initializes a new instance of the <see cref="DeleteFileRequest"/> class.
+        /// </summary>
+        /// <param name="message">The message.</param>
+        /// <param name="sha">The sha.</param>
         public DeleteFileRequest(string message, string sha) : base(message)
+        {
+            Ensure.ArgumentNotNullOrEmptyString(sha, "sha");
+
+            Sha = sha;
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="DeleteFileRequest"/> class.
+        /// </summary>
+        /// <param name="message">The message.</param>
+        /// <param name="sha">The sha.</param>
+        /// <param name="branch">The branch the request is for.</param>
+        public DeleteFileRequest(string message, string sha, string branch) : base(message, branch)
         {
             Ensure.ArgumentNotNullOrEmptyString(sha, "sha");
 
@@ -58,7 +90,7 @@ namespace Octokit
         {
             get
             {
-                return String.Format(CultureInfo.InvariantCulture, "SHA: {0} Message: {1}", Sha, Message);
+                return string.Format(CultureInfo.InvariantCulture, "SHA: {0} Message: {1}", Sha, Message);
             }
         }
     }
@@ -73,26 +105,65 @@ namespace Octokit
         /// <summary>
         /// Creates an instance of a <see cref="CreateFileRequest" />.
         /// </summary>
-        /// <param name="message"></param>
-        /// <param name="content"></param>
-        public CreateFileRequest(string message, string content) : base(message)
+        /// <param name="message">The message.</param>
+        /// <param name="content">The content.</param>
+        public CreateFileRequest(string message, string content) : this(message, content, true)
+        { }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="CreateFileRequest"/> class.
+        /// </summary>
+        /// <param name="message">The message.</param>
+        /// <param name="content">The content.</param>
+        /// <param name="branch">The branch the request is for.</param>
+        public CreateFileRequest(string message, string content, string branch) : this(message, content, branch, true)
+        { }
+
+        /// <summary>
+        /// Creates an instance of a <see cref="CreateFileRequest" />.
+        /// </summary>
+        /// <param name="message">The message.</param>
+        /// <param name="content">The content.</param>
+        /// <param name="convertContentToBase64">True to convert content to base64.</param>
+        public CreateFileRequest(string message, string content, bool convertContentToBase64) : base(message)
         {
             Ensure.ArgumentNotNull(content, "content");
 
+            if (convertContentToBase64)
+            {
+                content = content.ToBase64String();
+            }
             Content = content;
         }
 
         /// <summary>
-        /// The contents of the file to create. This is required.
+        /// Initializes a new instance of the <see cref="CreateFileRequest"/> class.
         /// </summary>
-        [SerializeAsBase64]
+        /// <param name="message">The message.</param>
+        /// <param name="content">The content.</param>
+        /// <param name="branch">The branch the request is for.</param>
+        /// <param name="convertContentToBase64">True to convert content to base64.</param>
+        public CreateFileRequest(string message, string content, string branch, bool convertContentToBase64) : base(message, branch)
+        {
+            Ensure.ArgumentNotNullOrEmptyString(content, "content");
+
+            if (convertContentToBase64)
+            {
+                content = content.ToBase64String();
+            }
+            Content = content;
+        }
+
+        /// <summary>
+        /// The contents of the file to create, Base64 encoded. This is required.
+        /// </summary>
         public string Content { get; private set; }
 
         internal virtual string DebuggerDisplay
         {
             get
             {
-                return String.Format(CultureInfo.InvariantCulture, "Message: {0} Content: {1}", Message, Content);
+                return string.Format(CultureInfo.InvariantCulture, "Message: {0} Content: {1}", Message, Content);
             }
         }
     }
@@ -103,8 +174,52 @@ namespace Octokit
     [DebuggerDisplay("{DebuggerDisplay,nq}")]
     public class UpdateFileRequest : CreateFileRequest
     {
+        /// <summary>
+        /// Creates an instance of a <see cref="UpdateFileRequest" />.
+        /// </summary>
+        /// <param name="message">The message.</param>
+        /// <param name="content">The content.</param>
+        /// <param name="sha">The sha.</param>
         public UpdateFileRequest(string message, string content, string sha)
-            : base(message, content)
+            : this(message, content, sha, true)
+        { }
+
+        /// <summary>
+        /// Creates an instance of a <see cref="UpdateFileRequest" />.
+        /// </summary>
+        /// <param name="message">The message.</param>
+        /// <param name="content">The content.</param>
+        /// <param name="sha">The sha.</param>
+        /// <param name="branch">The branch the request is for.</param>
+        public UpdateFileRequest(string message, string content, string sha, string branch)
+           : this(message, content, sha, branch, true)
+        { }
+
+        /// <summary>
+        /// Creates an instance of a <see cref="UpdateFileRequest" />.
+        /// </summary>
+        /// <param name="message">The message.</param>
+        /// <param name="content">The content.</param>
+        /// <param name="sha">The sha.</param>
+        /// <param name="convertContentToBase64">True to convert content to base64.</param>
+        public UpdateFileRequest(string message, string content, string sha, bool convertContentToBase64)
+            : base(message, content, convertContentToBase64)
+        {
+            Ensure.ArgumentNotNullOrEmptyString(sha, "sha");
+
+            Sha = sha;
+        }
+
+        /// <summary>
+        /// Creates an instance of a <see cref="UpdateFileRequest" />.
+        /// </summary>
+        /// <param name="message">The message.</param>
+        /// <param name="content">The content.</param>
+        /// <param name="sha">The sha.</param>
+        /// <param name="branch">The branch the request is for.</param>
+        /// <param name="convertContentToBase64">True to convert content to base64.</param>
+        public UpdateFileRequest(string message, string content, string sha, string branch, bool convertContentToBase64)
+           : base(message, content, branch, convertContentToBase64)
         {
             Ensure.ArgumentNotNullOrEmptyString(sha, "sha");
 
@@ -120,7 +235,7 @@ namespace Octokit
         {
             get
             {
-                return String.Format(CultureInfo.InvariantCulture, "SHA: {0} Message: {1}", Sha, Message);
+                return string.Format(CultureInfo.InvariantCulture, "SHA: {0} Message: {1}", Sha, Message);
             }
         }
     }

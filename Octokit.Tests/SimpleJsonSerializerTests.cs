@@ -1,5 +1,8 @@
 ﻿using Octokit.Helpers;
 using Octokit.Internal;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
 using Xunit;
 
 namespace Octokit.Tests
@@ -65,6 +68,33 @@ namespace Octokit.Tests
             }
 
             [Fact]
+            public void HandleUnicodeCharacters()
+            {
+                const string backspace = "\b";
+                const string tab = "\t";
+
+                var sb = new StringBuilder();
+                sb.Append("My name has Unicode characters");
+                Enumerable.Range(0, 19).Select(e => System.Convert.ToChar(e))
+                .Aggregate(sb, (a, b) => a.Append(b));
+                sb.Append(backspace).Append(tab);
+                var data = sb.ToString();
+
+                var json = new SimpleJsonSerializer().Serialize(data);
+                var lastTabCharacter = json
+                    .Reverse()
+                    .Skip(1)
+                    .Take(2)
+                    .Reverse()
+                    .Aggregate(new StringBuilder(), (a, b) => a.Append(b));
+
+                var deserializeData = new SimpleJsonSerializer().Deserialize<string>(json);
+
+                Assert.True(lastTabCharacter.ToString().Equals("\\t"));
+                Assert.Equal(data, deserializeData);
+            }
+
+            [Fact]
             public void HandlesBase64EncodedStrings()
             {
                 var item = new SomeObject
@@ -78,10 +108,60 @@ namespace Octokit.Tests
 
                 Assert.Equal("{\"name\":\"RmVycmlzIEJ1ZWxsZXI=\",\"description\":\"stuff\",\"content\":\"RGF5IG9mZg==\"}", json);
             }
+
+            [Fact]
+            public void HandlesEnum()
+            {
+                var item = new ObjectWithEnumProperty
+                {
+                    Name = "Ferris Bueller",
+                    SomeEnum = SomeEnum.PlusOne
+                };
+
+                var json = new SimpleJsonSerializer().Serialize(item);
+
+                Assert.Equal("{\"name\":\"Ferris Bueller\",\"some_enum\":\"+1\"}", json);
+            }
         }
+
 
         public class TheDeserializeMethod
         {
+            [Fact]
+            public void DeserializesEventInfosWithUnderscoresInName()
+            {
+                const string json = "{\"event\":\"head_ref_deleted\"}";
+                new SimpleJsonSerializer().Deserialize<EventInfo>(json);
+            }
+
+            public class MessageSingle
+            {
+                public string Message { get; private set; }
+            }
+
+            [Fact]
+            public void DeserializesStringsWithHyphensAndUnderscoresIntoString()
+            {
+                const string json = @"{""message"":""-my-test-string_with_underscores_""}";
+
+                var response = new SimpleJsonSerializer().Deserialize<MessageSingle>(json);
+                Assert.Equal("-my-test-string_with_underscores_", response.Message);
+            }
+
+            public class MessageList
+            {
+                public IReadOnlyList<string> Message { get; private set; }
+            }
+
+            [Fact]
+            public void DeserializesStringsWithHyphensAndUnderscoresIntoStringList()
+            {
+                const string json = @"{""message"":""-my-test-string_with_underscores_""}";
+
+                var response = new SimpleJsonSerializer().Deserialize<MessageList>(json);
+                Assert.Equal("-my-test-string_with_underscores_", response.Message[0]);
+            }
+
             [Fact]
             public void UnderstandsRubyCasing()
             {
@@ -216,6 +296,47 @@ namespace Octokit.Tests
                 Assert.False(sample.IsSomething);
                 Assert.True(sample.Private);
             }
+
+            [Fact]
+            public void DeserializesEnumWithParameterAttribute()
+            {
+                const string json1 = @"{""some_enum"":""+1""}";
+                const string json2 = @"{""some_enum"":""utf-8""}";
+                const string json3 = @"{""some_enum"":""something else""}";
+                const string json4 = @"{""some_enum"":""another_example""}";
+                const string json5 = @"{""some_enum"":""unicode""}";
+
+                var sample1 = new SimpleJsonSerializer().Deserialize<ObjectWithEnumProperty>(json1);
+                var sample2 = new SimpleJsonSerializer().Deserialize<ObjectWithEnumProperty>(json2);
+                var sample3 = new SimpleJsonSerializer().Deserialize<ObjectWithEnumProperty>(json3);
+                var sample4 = new SimpleJsonSerializer().Deserialize<ObjectWithEnumProperty>(json4);
+                var sample5 = new SimpleJsonSerializer().Deserialize<ObjectWithEnumProperty>(json5);
+
+                Assert.Equal(SomeEnum.PlusOne, sample1.SomeEnum);
+                Assert.Equal(SomeEnum.Utf8, sample2.SomeEnum);
+                Assert.Equal(SomeEnum.SomethingElse, sample3.SomeEnum);
+                Assert.Equal(SomeEnum.AnotherExample, sample4.SomeEnum);
+                Assert.Equal(SomeEnum.Unicode, sample5.SomeEnum);
+            }
+
+            [Fact]
+            public void ShouldDeserializeMultipleEnumValues()
+            {
+                var strings = new[]
+                {
+                    "locked",
+                    "unlocked",
+                    "head_ref_deleted",
+                    "head_ref_restored"
+                };
+
+                foreach (var value in strings)
+                {
+                    var enumValue = SimpleJsonSerializer.DeserializeEnum(value, typeof(EventInfoState));
+
+                    // Test passes if no exception thrown
+                }
+            }
         }
 
         public class Sample
@@ -238,5 +359,30 @@ namespace Octokit.Tests
 
             public string Description { get; set; }
         }
+    }
+
+    public class ObjectWithEnumProperty
+    {
+        public string Name { get; set; }
+
+        public SomeEnum SomeEnum { get; set; }
+    }
+
+    public enum SomeEnum
+    {
+        [Parameter(Value = "+1")]
+        PlusOne,
+
+        [Parameter(Value = "utf-8")]
+        Utf8,
+
+        [Parameter(Value = "something else")]
+        SomethingElse,
+
+        [Parameter(Value = "another_example")]
+        AnotherExample,
+
+        [Parameter(Value = "unicode")]
+        Unicode
     }
 }

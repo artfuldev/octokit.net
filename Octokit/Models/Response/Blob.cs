@@ -1,6 +1,6 @@
-﻿using System;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Globalization;
+using Octokit.Internal;
 
 namespace Octokit
 {
@@ -25,7 +25,7 @@ namespace Octokit
         /// <summary>
         /// The encoding of the blob.
         /// </summary>
-        public EncodingType Encoding { get; protected set; }
+        public StringEnum<EncodingType> Encoding { get; protected set; }
 
         /// <summary>
         /// The SHA of the blob.
@@ -41,14 +41,17 @@ namespace Octokit
         {
             get
             {
-                return String.Format(CultureInfo.InvariantCulture, "Sha: {0} Size: {1}", Sha, Size);
+                return string.Format(CultureInfo.InvariantCulture, "Sha: {0} Size: {1}", Sha, Size);
             }
         }
     }
 
     public enum EncodingType
     {
+        [Parameter(Value = "utf-8")]
         Utf8,
+
+        [Parameter(Value = "base64")]
         Base64
     }
 }

@@ -1,34 +1,48 @@
-﻿using System.Linq;
+﻿using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Octokit;
 using Octokit.Tests.Integration;
+using Octokit.Tests.Integration.Helpers;
 using Xunit;
 
 public class AssigneesClientTests
 {
-    readonly IGitHubClient _gitHubClient;
-    readonly Repository _repository;
-    readonly string _owner;
+    readonly IGitHubClient _github;
+    readonly RepositoryContext _context;
+    readonly IIssuesClient _issuesClient;
 
     public AssigneesClientTests()
     {
-        _gitHubClient = Helper.GetAuthenticatedClient();
+        _github = Helper.GetAuthenticatedClient();
         var repoName = Helper.MakeNameWithTimestamp("public-repo");
 
-        _repository = _gitHubClient.Repository.Create(new NewRepository { Name = repoName }).Result;
-        _owner = _repository.Owner.Login;
+        _context = _github.CreateRepositoryContext(new NewRepository(repoName)).Result;
     }
 
     [IntegrationTest]
     public async Task CanCheckAssignees()
     {
         var isAssigned = await
-            _gitHubClient.Issue.Assignee.CheckAssignee(_owner, _repository.Name, "FakeHaacked");
+            _github.Issue.Assignee.CheckAssignee(_context.RepositoryOwner, _context.RepositoryName, "FakeHaacked");
         Assert.False(isAssigned);
-        
+
         // Repository owner is always an assignee
         isAssigned = await
-            _gitHubClient.Issue.Assignee.CheckAssignee(_owner, _repository.Name, _owner);
+            _github.Issue.Assignee.CheckAssignee(_context.RepositoryOwner, _context.RepositoryName, _context.RepositoryOwner);
+        Assert.True(isAssigned);
+    }
+
+    [IntegrationTest]
+    public async Task CanCheckAssigneesWithRepositoryId()
+    {
+        var isAssigned = await
+            _github.Issue.Assignee.CheckAssignee(_context.Repository.Id, "FakeHaacked");
+        Assert.False(isAssigned);
+
+        // Repository owner is always an assignee
+        isAssigned = await
+            _github.Issue.Assignee.CheckAssignee(_context.Repository.Id, _context.RepositoryOwner);
         Assert.True(isAssigned);
     }
 
@@ -36,12 +50,39 @@ public class AssigneesClientTests
     public async Task CanListAssignees()
     {
         // Repository owner is always an assignee
-        var assignees = await _gitHubClient.Issue.Assignee.GetForRepository(_owner, _repository.Name);
+        var assignees = await _github.Issue.Assignee.GetAllForRepository(_context.RepositoryOwner, _context.RepositoryName);
         Assert.True(assignees.Any(u => u.Login == Helper.UserName));
     }
 
-    public void Dispose()
+    [IntegrationTest]
+    public async Task CanAddAndRemoveAssignees()
     {
-        Helper.DeleteRepo(_repository);
+        var newAssignees = new AssigneesUpdate(new List<string>() { _context.RepositoryOwner });
+        var newIssue = new NewIssue("a test issue") { Body = "A new unassigned issue" };
+        var issuesClient = _github.Issue;
+
+        var issue = await issuesClient.Create(_context.RepositoryOwner, _context.RepositoryName, newIssue);
+
+        Assert.NotNull(issue);
+
+        var addAssignees = await _github.Issue.Assignee.AddAssignees(_context.RepositoryOwner, _context.RepositoryName, issue.Number, newAssignees);
+
+        Assert.IsType<Issue>(addAssignees);
+
+        //Check if assignee was added to issue
+        Assert.True(addAssignees.Assignees.Any(x => x.Login == _context.RepositoryOwner));
+
+        //Test to remove assignees
+        var removeAssignees = await _github.Issue.Assignee.RemoveAssignees(_context.RepositoryOwner, _context.RepositoryName, issue.Number, newAssignees);
+
+        //Check if assignee was removed
+        Assert.False(removeAssignees.Assignees.Any(x => x.Login == _context.RepositoryOwner));
+    }
+
+    public async Task CanListAssigneesWithRepositoryId()
+    {
+        // Repository owner is always an assignee
+        var assignees = await _github.Issue.Assignee.GetAllForRepository(_context.Repository.Id);
+        Assert.True(assignees.Any(u => u.Login == Helper.UserName));
     }
 }

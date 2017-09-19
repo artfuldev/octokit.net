@@ -10,7 +10,7 @@ namespace Octokit
     public static class UriExtensions
     {
         /// <summary>
-        /// Merge a dictionary of valeus with an existing <see cref="Uri"/>
+        /// Merge a dictionary of values with an existing <see cref="Uri"/>
         /// </summary>
         /// <param name="uri">Original request Uri</param>
         /// <param name="parameters">Collection of key-value pairs</param>
@@ -23,7 +23,13 @@ namespace Octokit
 
             // to prevent values being persisted across requests
             // use a temporary dictionary which combines new and existing parameters
-            IDictionary<string,string> p = new Dictionary<string, string>(parameters);
+            IDictionary<string, string> p = new Dictionary<string, string>(parameters);
+
+            var hasQueryString = uri.OriginalString.IndexOf("?", StringComparison.Ordinal);
+
+            string uriWithoutQuery = hasQueryString == -1
+                    ? uri.ToString()
+                    : uri.OriginalString.Substring(0, hasQueryString);
 
             string queryString;
             if (uri.IsAbsoluteUri)
@@ -32,7 +38,6 @@ namespace Octokit
             }
             else
             {
-                var hasQueryString = uri.OriginalString.IndexOf("?", StringComparison.Ordinal);
                 queryString = hasQueryString == -1
                     ? ""
                     : uri.OriginalString.Substring(hasQueryString);
@@ -53,13 +58,9 @@ namespace Octokit
                 }
             }
 
-            Func<string, string, string> mapValueFunc = (key, value) =>
-            {
-                if (key == "q") return value;
-                return Uri.EscapeDataString(value);
-            };
+            Func<string, string, string> mapValueFunc = (key, value) => key == "q" ? value : Uri.EscapeDataString(value);
 
-            string query = String.Join("&", p.Select(kvp => kvp.Key + "=" + mapValueFunc(kvp.Key, kvp.Value)));
+            string query = string.Join("&", p.Select(kvp => kvp.Key + "=" + mapValueFunc(kvp.Key, kvp.Value)));
             if (uri.IsAbsoluteUri)
             {
                 var uriBuilder = new UriBuilder(uri)
@@ -69,7 +70,7 @@ namespace Octokit
                 return uriBuilder.Uri;
             }
 
-            return new Uri(uri + "?" + query, UriKind.Relative);
+            return new Uri(uriWithoutQuery + "?" + query, UriKind.Relative);
         }
     }
 }

@@ -1,24 +1,22 @@
 ﻿using System;
 using System.Text;
+using System.Threading.Tasks;
 using Octokit;
 using Octokit.Tests.Integration;
-using System.Threading.Tasks;
+using Octokit.Tests.Integration.Helpers;
 using Xunit;
 
 public class BlobClientTests : IDisposable
 {
-    readonly IBlobsClient _fixture;
-    readonly Repository _repository;
-    readonly string _owner;
+    private readonly IBlobsClient _fixture;
+    private readonly RepositoryContext _context;
 
     public BlobClientTests()
     {
-        var client = Helper.GetAuthenticatedClient();
-        _fixture = client.GitDatabase.Blob;
+        var github = Helper.GetAuthenticatedClient();
+        _fixture = github.Git.Blob;
 
-        var repoName = Helper.MakeNameWithTimestamp("public-repo");
-        _repository = client.Repository.Create(new NewRepository { Name = repoName, AutoInit = true }).Result;
-        _owner = _repository.Owner.Login;
+        _context = github.CreateRepositoryContext("public-repo").Result;
     }
 
     [IntegrationTest]
@@ -30,9 +28,23 @@ public class BlobClientTests : IDisposable
             Encoding = EncodingType.Utf8
         };
 
-        var result = await _fixture.Create(_owner, _repository.Name, blob);
+        var result = await _fixture.Create(_context.RepositoryOwner, _context.RepositoryName, blob);
 
-        Assert.False(String.IsNullOrWhiteSpace(result.Sha));
+        Assert.False(string.IsNullOrWhiteSpace(result.Sha));
+    }
+
+    [IntegrationTest]
+    public async Task CanCreateABlobWithRepositoryId()
+    {
+        var blob = new NewBlob
+        {
+            Content = "Hello World!",
+            Encoding = EncodingType.Utf8
+        };
+
+        var result = await _fixture.Create(_context.Repository.Id, blob);
+
+        Assert.False(string.IsNullOrWhiteSpace(result.Sha));
     }
 
     [IntegrationTest]
@@ -47,9 +59,26 @@ public class BlobClientTests : IDisposable
             Encoding = EncodingType.Base64
         };
 
-        var result = await _fixture.Create(_owner, _repository.Name, blob);
+        var result = await _fixture.Create(_context.RepositoryOwner, _context.RepositoryName, blob);
 
-        Assert.False(String.IsNullOrWhiteSpace(result.Sha));
+        Assert.False(string.IsNullOrWhiteSpace(result.Sha));
+    }
+
+    [IntegrationTest]
+    public async Task CanCreateABlobWithBase64ContentsAndWithRepositoryId()
+    {
+        var utf8Bytes = Encoding.UTF8.GetBytes("Hello World!");
+        var base64String = Convert.ToBase64String(utf8Bytes);
+
+        var blob = new NewBlob
+        {
+            Content = base64String,
+            Encoding = EncodingType.Base64
+        };
+
+        var result = await _fixture.Create(_context.Repository.Id, blob);
+
+        Assert.False(string.IsNullOrWhiteSpace(result.Sha));
     }
 
     [IntegrationTest]
@@ -61,8 +90,28 @@ public class BlobClientTests : IDisposable
             Encoding = EncodingType.Utf8
         };
 
-        var result = await _fixture.Create(_owner, _repository.Name, newBlob);
-        var blob = await _fixture.Get(_owner, _repository.Name, result.Sha);
+        var result = await _fixture.Create(_context.RepositoryOwner, _context.RepositoryName, newBlob);
+        var blob = await _fixture.Get(_context.RepositoryOwner, _context.RepositoryName, result.Sha);
+
+        Assert.Equal(result.Sha, blob.Sha);
+        Assert.Equal(EncodingType.Base64, blob.Encoding);
+
+        var contents = Encoding.UTF8.GetString(Convert.FromBase64String(blob.Content));
+
+        Assert.Equal("Hello World!", contents);
+    }
+
+    [IntegrationTest]
+    public async Task CanGetABlobWithRepositoryId()
+    {
+        var newBlob = new NewBlob
+        {
+            Content = "Hello World!",
+            Encoding = EncodingType.Utf8
+        };
+
+        var result = await _fixture.Create(_context.Repository.Id, newBlob);
+        var blob = await _fixture.Get(_context.Repository.Id, result.Sha);
 
         Assert.Equal(result.Sha, blob.Sha);
         Assert.Equal(EncodingType.Base64, blob.Encoding);
@@ -84,8 +133,32 @@ public class BlobClientTests : IDisposable
             Encoding = EncodingType.Base64
         };
 
-        var result = await _fixture.Create(_owner, _repository.Name, newBlob);
-        var blob = await _fixture.Get(_owner, _repository.Name, result.Sha);
+        var result = await _fixture.Create(_context.RepositoryOwner, _context.RepositoryName, newBlob);
+        var blob = await _fixture.Get(_context.RepositoryOwner, _context.RepositoryName, result.Sha);
+
+        Assert.Equal(result.Sha, blob.Sha);
+        Assert.Equal(EncodingType.Base64, blob.Encoding);
+
+        // NOTE: it looks like the blobs you get back from the GitHub API
+        // will have an additional \n on the end. :cool:!
+        var expectedOutput = base64String + "\n";
+        Assert.Equal(expectedOutput, blob.Content);
+    }
+
+    [IntegrationTest]
+    public async Task CanGetABlobWithBase64TextWithRepositoryId()
+    {
+        var utf8Bytes = Encoding.UTF8.GetBytes("Hello World!");
+        var base64String = Convert.ToBase64String(utf8Bytes);
+
+        var newBlob = new NewBlob
+        {
+            Content = base64String,
+            Encoding = EncodingType.Base64
+        };
+
+        var result = await _fixture.Create(_context.Repository.Id, newBlob);
+        var blob = await _fixture.Get(_context.Repository.Id, result.Sha);
 
         Assert.Equal(result.Sha, blob.Sha);
         Assert.Equal(EncodingType.Base64, blob.Encoding);
@@ -98,6 +171,6 @@ public class BlobClientTests : IDisposable
 
     public void Dispose()
     {
-        Helper.DeleteRepo(_repository);
+        _context.Dispose();
     }
 }

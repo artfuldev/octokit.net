@@ -6,16 +6,14 @@ using Octokit.Internal;
 
 namespace Octokit
 {
+    /// <summary>
+    /// Specifies the values used to update an issue.
+    /// </summary>
     [DebuggerDisplay("{DebuggerDisplay,nq}")]
     public class IssueUpdate
     {
-        public IssueUpdate()
-        {
-            Labels = new List<string>();
-        }
-
         /// <summary>
-        /// Title of the milestone (required)
+        /// Title of the issue (required)
         /// </summary>
         public string Title { get; set; }
 
@@ -30,8 +28,16 @@ namespace Octokit
         /// <remarks>
         /// Only users with push access can set the assignee for new issues. The assignee is silently dropped otherwise.
         /// </remarks>
-        [SerializeNull]
+        [Obsolete("Please use Assignees property.  This property will no longer be supported by the GitHub API and will be removed in a future version")]
         public string Assignee { get; set; }
+
+        /// <summary>
+        /// List of logins for the multiple users that this issue should be assigned to
+        /// </summary>
+        /// <remarks>
+        /// Only users with push access can set the multiple assignees for new issues.  The assignees are silently dropped otherwise.
+        /// </remarks>
+        public ICollection<string> Assignees { get; private set; }
 
         /// <summary>
         /// Milestone to associate this issue with.
@@ -60,13 +66,104 @@ namespace Octokit
         {
             get
             {
-                return String.Format(CultureInfo.InvariantCulture, "Title: {0}",Title);
+                return string.Format(CultureInfo.InvariantCulture, "Title: {0}", Title);
             }
         }
 
+        /// <summary>
+        /// Adds the specified assigness to the issue.
+        /// </summary>
+        /// <param name="name">The login of the assignee.</param>
+        public void AddAssignee(string name)
+        {
+            // lazily create the assignees array
+            if (Assignees == null)
+            {
+                Assignees = new List<string>();
+            }
+
+            Assignees.Add(name);
+        }
+
+        /// <summary>
+        /// Clears all the assignees.
+        /// </summary>
+        public void ClearAssignees()
+        {
+            // lazily create the assignees array
+            if (Assignees == null)
+            {
+                Assignees = new List<string>();
+            }
+            else
+            {
+                Assignees.Clear();
+            }
+        }
+
+        /// <summary>
+        /// Removes the specified assignee from the issue
+        /// </summary>
+        /// <param name="name">The login of the assignee to remove</param>
+        public void RemoveAssignee(string name)
+        {
+            // lazily create the assignees array
+            if (Assignees == null)
+            {
+                Assignees = new List<string>();
+            }
+            else
+            {
+                Assignees.Remove(name);
+            }
+        }
+
+        /// <summary>
+        /// Adds the specified label to the issue.
+        /// </summary>
+        /// <param name="name">The name of the label.</param>
         public void AddLabel(string name)
         {
+            // lazily create the label array
+            if (Labels == null)
+            {
+                Labels = new List<string>();
+            }
+
             Labels.Add(name);
+        }
+
+        /// <summary>
+        /// Clears all the labels.
+        /// </summary>
+        public void ClearLabels()
+        {
+            // lazily create the label array
+            if (Labels == null)
+            {
+                Labels = new List<string>();
+            }
+            else
+            {
+                Labels.Clear();
+            }
+        }
+
+        /// <summary>
+        /// Removes the specified label from the issue
+        /// </summary>
+        /// <param name="name">The name of the label to remove</param>
+        public void RemoveLabel(string name)
+        {
+            // lazily create the label array
+            if (Labels == null)
+            {
+                Labels = new List<string>();
+            }
+            else
+            {
+                Labels.Remove(name);
+            }
         }
     }
 }

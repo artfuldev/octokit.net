@@ -1,9 +1,11 @@
-﻿using System;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Globalization;
 
 namespace Octokit
 {
+    /// <summary>
+    /// Used to create a new commit status.
+    /// </summary>
     [DebuggerDisplay("{DebuggerDisplay,nq}")]
     public class NewCommitStatus
     {
@@ -17,7 +19,7 @@ namespace Octokit
         /// ‘source’ of the Status. For example, if your Continuous Integration system is posting build status, 
         /// you would want to provide the deep link for the build output for this specific sha.
         /// </summary>
-        public Uri TargetUrl { get; set; }
+        public string TargetUrl { get; set; }
 
         /// <summary>
         /// Short description of the status.
@@ -33,7 +35,7 @@ namespace Octokit
         {
             get
             {
-                return String.Format(CultureInfo.InvariantCulture, "Description: {0}, Context: {1}", Description, Context);
+                return string.Format(CultureInfo.InvariantCulture, "Description: {0}, Context: {1}", Description, Context);
             }
         }
     }

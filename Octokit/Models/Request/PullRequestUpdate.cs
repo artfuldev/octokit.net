@@ -1,9 +1,11 @@
-﻿using System;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Globalization;
 
 namespace Octokit
 {
+    /// <summary>
+    /// Used to update an existing pull request.
+    /// </summary>
     [DebuggerDisplay("{DebuggerDisplay,nq}")]
     public class PullRequestUpdate
     {
@@ -22,11 +24,16 @@ namespace Octokit
         /// </summary>
         public string Body { get; set; }
 
+        /// <summary>
+        /// The base branch of the pull request.
+        /// </summary>
+        public string Base { get; set; }
+
         internal string DebuggerDisplay
         {
             get
             {
-                return String.Format(CultureInfo.InvariantCulture, "Title: {0}", Title);
+                return string.Format(CultureInfo.InvariantCulture, "Title: {0}", Title);
             }
         }
     }

@@ -12,6 +12,10 @@ namespace Octokit
         readonly IConnection connection;
         readonly Uri hostAddress;
 
+        /// <summary>
+        /// Create an instance of the OauthClient
+        /// </summary>
+        /// <param name="connection">The underlying connection to use</param>
         public OauthClient(IConnection connection)
         {
             Ensure.ArgumentNotNull(connection, "connection");
@@ -58,7 +62,7 @@ namespace Octokit
 
             var body = new FormUrlEncodedContent(request.ToParametersDictionary());
 
-            var response = await connection.Post<OauthToken>(endPoint, body, "application/json", null, hostAddress);
+            var response = await connection.Post<OauthToken>(endPoint, body, "application/json", null, hostAddress).ConfigureAwait(false);
             return response.Body;
         }
     }

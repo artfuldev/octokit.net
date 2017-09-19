@@ -1,11 +1,10 @@
 ﻿using System;
-using System.Collections.Generic;
 #if NET_45
 using System.Collections.ObjectModel;
 #endif
 using System.Threading.Tasks;
 using NSubstitute;
-using Octokit.Tests.Helpers;
+using Octokit.Internal;
 using Xunit;
 
 namespace Octokit.Tests.Clients
@@ -16,10 +15,10 @@ namespace Octokit.Tests.Clients
     /// </summary>
     public class UsersClientTests
     {
-        public class TheConstructor
+        public class TheCtor
         {
             [Fact]
-            public void ThrowsForBadArgs()
+            public void EnsuresNonNullArguments()
             {
                 Assert.Throws<ArgumentNullException>(() => new UsersClient(null));
             }
@@ -43,7 +42,7 @@ namespace Octokit.Tests.Clients
             public async Task ThrowsIfGivenNullUser()
             {
                 var userEndpoint = new UsersClient(Substitute.For<IApiConnection>());
-                await AssertEx.Throws<ArgumentNullException>(() => userEndpoint.Get(null));
+                await Assert.ThrowsAsync<ArgumentNullException>(() => userEndpoint.Get(null));
             }
         }
 
@@ -65,7 +64,7 @@ namespace Octokit.Tests.Clients
             public async Task ThrowsIfGivenNullUser()
             {
                 var userEndpoint = new UsersClient(Substitute.For<IApiConnection>());
-                await AssertEx.Throws<ArgumentNullException>(() => userEndpoint.Get(null));
+                await Assert.ThrowsAsync<ArgumentNullException>(() => userEndpoint.Get(null));
             }
         }
 
@@ -87,7 +86,21 @@ namespace Octokit.Tests.Clients
             public async Task EnsuresArgumentsNotNull()
             {
                 var userEndpoint = new UsersClient(Substitute.For<IApiConnection>());
-                await AssertEx.Throws<ArgumentNullException>(() => userEndpoint.Update(null));
+                await Assert.ThrowsAsync<ArgumentNullException>(() => userEndpoint.Update(null));
+            }
+        }
+
+        public class SerializationTests
+        {
+            [Fact]
+            public void WhenNotFoundTypeDefaultsToUnknown()
+            {
+                const string json = @"{""private"":true}";
+
+                var user = new SimpleJsonSerializer().Deserialize<User>(json);
+
+                Assert.Equal(0, user.Id);
+                Assert.Null(user.Type);
             }
         }
     }

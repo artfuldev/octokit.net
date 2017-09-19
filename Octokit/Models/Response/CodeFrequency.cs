@@ -1,5 +1,5 @@
-using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
@@ -16,7 +16,9 @@ namespace Octokit
 
         public CodeFrequency(IEnumerable<AdditionsAndDeletions> additionsAndDeletionsByWeek)
         {
-            AdditionsAndDeletionsByWeek = additionsAndDeletionsByWeek;
+            Ensure.ArgumentNotNull(additionsAndDeletionsByWeek, "additionsAndDeletionsByWeek");
+
+            AdditionsAndDeletionsByWeek = new ReadOnlyCollection<AdditionsAndDeletions>(additionsAndDeletionsByWeek.ToList());
         }
 
         /// <summary>
@@ -32,14 +34,14 @@ namespace Octokit
         /// <summary>
         /// A weekly aggregate of the number of additions and deletions pushed to a repository.
         /// </summary>
-        public IEnumerable<AdditionsAndDeletions> AdditionsAndDeletionsByWeek { get; private set; }
+        public IReadOnlyList<AdditionsAndDeletions> AdditionsAndDeletionsByWeek { get; private set; }
 
         internal string DebuggerDisplay
         {
             get
             {
-                return String.Format(CultureInfo.InvariantCulture,
-                    "Number of weeks: {0}", AdditionsAndDeletionsByWeek.Count());
+                return string.Format(CultureInfo.InvariantCulture,
+                    "Number of weeks: {0}", AdditionsAndDeletionsByWeek.Count);
             }
         }
     }

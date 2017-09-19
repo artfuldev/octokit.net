@@ -1,5 +1,4 @@
-﻿using System;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 
@@ -30,7 +29,7 @@ namespace Octokit
 
         internal string DebuggerDisplay
         {
-            get { return String.Format(CultureInfo.InvariantCulture, "Type: {0}, Title: {1}", Type, Title); }
+            get { return string.Format(CultureInfo.InvariantCulture, "Type: {0}, Title: {1}", Type, Title); }
         }
     }
 }

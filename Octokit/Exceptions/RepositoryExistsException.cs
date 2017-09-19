@@ -1,14 +1,17 @@
 ﻿using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
+#if !NO_SERIALIZABLE
 using System.Runtime.Serialization;
+#endif
+using System.Security;
 
 namespace Octokit
 {
     /// <summary>
     /// Exception thrown when creating a repository, but it already exists on the server.
     /// </summary>
-#if !NETFX_CORE
+#if !NO_SERIALIZABLE
     [Serializable]
 #endif
     [SuppressMessage("Microsoft.Design", "CA1032:ImplementStandardExceptionConstructors",
@@ -42,7 +45,7 @@ namespace Octokit
                         ? baseAddress
                         : GitHubClient.GitHubDotComUrl;
             ExistingRepositoryWebUrl = new Uri(webBaseAddress, new Uri(organization + "/" + name, UriKind.Relative));
-            
+
             _message = string.Format(CultureInfo.InvariantCulture, "There is already a repository named '{0}' in the organization '{1}'.", name, organization);
         }
 
@@ -60,7 +63,7 @@ namespace Octokit
 
             RepositoryName = name;
 
-            _message = String.Format(CultureInfo.InvariantCulture, "There is already a repository named '{0}' for the current account.", name);
+            _message = string.Format(CultureInfo.InvariantCulture, "There is already a repository named '{0}' for the current account.", name);
         }
 
         /// <summary>
@@ -94,7 +97,7 @@ namespace Octokit
         /// </summary>
         public bool OwnerIsOrganization { get; private set; }
 
-#if !NETFX_CORE
+#if !NO_SERIALIZABLE
         /// <summary>
         /// Constructs an instance of RepositoryExistsException.
         /// </summary>
@@ -110,13 +113,14 @@ namespace Octokit
             : base(info, context)
         {
             if (info == null) return;
-            _message = info.GetString("Message"); 
+            _message = info.GetString("Message");
             RepositoryName = info.GetString("RepositoryName");
             Organization = info.GetString("Organization");
-            OwnerIsOrganization = info.GetBoolean("OwnerIsOrganization"); 
-            ExistingRepositoryWebUrl = (Uri)(info.GetValue("ExistingRepositoryWebUrl", typeof(Uri)));
+            OwnerIsOrganization = info.GetBoolean("OwnerIsOrganization");
+            ExistingRepositoryWebUrl = (Uri)info.GetValue("ExistingRepositoryWebUrl", typeof(Uri));
         }
 
+        [SecurityCritical]
         public override void GetObjectData(SerializationInfo info, StreamingContext context)
         {
             base.GetObjectData(info, context);

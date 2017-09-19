@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
@@ -36,12 +35,17 @@ namespace Octokit
         /// </summary>
         public string NoteUrl { get; set; }
 
+        /// <summary>
+        /// Optional parameter that allows an OAuth application to create multiple authorizations for a single user
+        /// </summary>
+        public string Fingerprint { get; set; }
+
         internal string DebuggerDisplay
         {
             get
             {
                 var scopes = Scopes ?? new List<string>();
-                return String.Format(CultureInfo.InvariantCulture, "Scopes: {0} ", string.Join(",", scopes));
+                return string.Format(CultureInfo.InvariantCulture, "Scopes: {0} ", string.Join(",", scopes));
             }
         }
     }

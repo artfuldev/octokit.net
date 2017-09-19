@@ -3,7 +3,10 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
+#if !NO_SERIALIZABLE
 using System.Runtime.Serialization.Formatters.Binary;
+#endif
+using System.Text;
 using NSubstitute;
 using Octokit.Internal;
 using Xunit;
@@ -26,9 +29,9 @@ namespace Octokit.Tests.Exceptions
             public void SetsSpecifiedExceptionMessageAndInnerException()
             {
                 var inner = new InvalidOperationException();
-                
+
                 var exception = new ApiException("Shit broke", inner);
-                
+
                 Assert.Equal("Shit broke", exception.Message);
                 Assert.Same(inner, exception.InnerException);
             }
@@ -95,7 +98,7 @@ namespace Octokit.Tests.Exceptions
                 Assert.Equal("message2", thirdException.ApiError.Message);
             }
 
-#if !NETFX_CORE
+#if !NO_SERIALIZABLE
             [Fact]
             public void CanPopulateObjectFromSerializedData()
             {
@@ -119,6 +122,73 @@ namespace Octokit.Tests.Exceptions
                 }
             }
 #endif
+        }
+
+        public class TheToStringMethod
+        {
+            [Fact]
+            public void ContainsResponseBody()
+            {
+                const string responseBody = @"{""errors"":[{""code"":""custom"",""field"":""key"",""message"":""key is " +
+                                            @"already in use"",""resource"":""PublicKey""}],""message"":""Validation Failed""}";
+                var response = new Response(
+                    HttpStatusCode.GatewayTimeout,
+                    responseBody,
+                    new Dictionary<string, string>(),
+                    "application/json"
+                    );
+
+                var exception = new ApiException(response);
+                var stringRepresentation = exception.ToString();
+                Assert.Contains(responseBody, stringRepresentation);
+            }
+
+            [Fact]
+            public void DoesNotThrowIfBodyIsNotDefined()
+            {
+                var response = new Response(
+                    HttpStatusCode.GatewayTimeout,
+                    null,
+                    new Dictionary<string, string>(),
+                    "application/json"
+                );
+
+                var exception = new ApiException(response);
+                var stringRepresentation = exception.ToString();
+                Assert.NotNull(stringRepresentation);
+            }
+
+            [Fact]
+            public void DoesNotPrintImageContent()
+            {
+                var responceBody = new byte[0];
+                var response = new Response(
+                    HttpStatusCode.GatewayTimeout,
+                    responceBody,
+                    new Dictionary<string, string>(),
+                    "image/*"
+                );
+
+                var exception = new ApiException(response);
+                var stringRepresentation = exception.ToString();
+                Assert.NotNull(stringRepresentation);
+            }
+
+            [Fact]
+            public void DoesNotPrintNonStringContent()
+            {
+                var responceBody = new byte[0];
+                var response = new Response(
+                    HttpStatusCode.GatewayTimeout,
+                    responceBody,
+                    new Dictionary<string, string>(),
+                    "application/json"
+                );
+
+                var exception = new ApiException(response);
+                var stringRepresentation = exception.ToString();
+                Assert.NotNull(stringRepresentation);
+            }
         }
     }
 }

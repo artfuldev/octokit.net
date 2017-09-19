@@ -1,10 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.Linq;
 using System.Reactive;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Octokit.Reactive
 {
@@ -21,6 +17,17 @@ namespace Octokit.Reactive
         IObservable<User> GetAllForCurrent();
 
         /// <summary>
+        /// List the authenticated user’s followers
+        /// </summary>
+        /// <param name="options">Options for changing the API response</param>
+        /// <remarks>
+        /// See the <a href="http://developer.github.com/v3/users/followers/#list-followers-of-a-user">API documentation</a> for more information.
+        /// </remarks>
+        /// <returns>A <see cref="IObservable{User}"/> of <see cref="User"/>s that follow the authenticated user.</returns>
+        [SuppressMessage("Microsoft.Design", "CA1024:UsePropertiesWhereAppropriate")]
+        IObservable<User> GetAllForCurrent(ApiOptions options);
+
+        /// <summary>
         /// List a user’s followers
         /// </summary>
         /// <param name="login">The login name for the user</param>
@@ -31,6 +38,17 @@ namespace Octokit.Reactive
         IObservable<User> GetAll(string login);
 
         /// <summary>
+        /// List a user’s followers
+        /// </summary>
+        /// <param name="options">Options for changing the API response</param>
+        /// <param name="login">The login name for the user</param>
+        /// <remarks>
+        /// See the <a href="http://developer.github.com/v3/users/followers/#list-followers-of-a-user">API documentation</a> for more information.
+        /// </remarks>
+        /// <returns>A <see cref="IObservable{User}"/> of <see cref="User"/>s that follow the passed user.</returns>
+        IObservable<User> GetAll(string login, ApiOptions options);
+
+        /// <summary>
         /// List who the authenticated user is following
         /// </summary>
         /// <remarks>
@@ -38,7 +56,17 @@ namespace Octokit.Reactive
         /// </remarks>
         /// <returns>A <see cref="IObservable{User}"/> of <see cref="User"/>s that the authenticated user follows.</returns>
         [SuppressMessage("Microsoft.Design", "CA1024:UsePropertiesWhereAppropriate")]
-        IObservable<User> GetFollowingForCurrent();
+        IObservable<User> GetAllFollowingForCurrent();
+
+        /// <summary>
+        /// List who the authenticated user is following
+        /// </summary>
+        /// <param name="options">Options for changing the API response</param>
+        /// <remarks>
+        /// See the <a href="http://developer.github.com/v3/users/followers/#list-users-followed-by-another-user">API documentation</a> for more information.
+        /// </remarks>
+        /// <returns>A <see cref="IObservable{User}"/> of <see cref="User"/>s that the authenticated user follows.</returns>        
+        IObservable<User> GetAllFollowingForCurrent(ApiOptions options);
 
         /// <summary>
         /// List who a user is following
@@ -48,7 +76,18 @@ namespace Octokit.Reactive
         /// See the <a href="http://developer.github.com/v3/users/followers/#list-users-followed-by-another-user">API documentation</a> for more information.
         /// </remarks>
         /// <returns>A <see cref="IObservable{User}"/> of <see cref="User"/>s that the passed user follows.</returns>
-        IObservable<User> GetFollowing(string login);
+        IObservable<User> GetAllFollowing(string login);
+
+        /// <summary>
+        /// List who a user is following
+        /// </summary>
+        /// <param name="login">The login name of the user</param>
+        /// <param name="options">Options for changing the API response</param>
+        /// <remarks>
+        /// See the <a href="http://developer.github.com/v3/users/followers/#list-users-followed-by-another-user">API documentation</a> for more information.
+        /// </remarks>
+        /// <returns>A <see cref="IObservable{User}"/> of <see cref="User"/>s that the passed user follows.</returns>
+        IObservable<User> GetAllFollowing(string login, ApiOptions options);
 
         /// <summary>
         /// Check if the authenticated user follows another user

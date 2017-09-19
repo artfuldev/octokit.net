@@ -1,5 +1,4 @@
-﻿using System;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Globalization;
 
 namespace Octokit
@@ -10,6 +9,10 @@ namespace Octokit
     [DebuggerDisplay("{DebuggerDisplay,nq}")]
     public class NewCommitComment
     {
+        /// <summary>
+        /// Initializes a new instance of the <see cref="NewCommitComment"/> class.
+        /// </summary>
+        /// <param name="body">The body of the comment.</param>
         public NewCommitComment(string body)
         {
             Ensure.ArgumentNotNull(body, "body");
@@ -36,7 +39,7 @@ namespace Octokit
         {
             get
             {
-                return String.Format(CultureInfo.InvariantCulture, "Path: {0}, Body: {1}", Path, Body);
+                return string.Format(CultureInfo.InvariantCulture, "Path: {0}, Body: {1}", Path, Body);
             }
         }
     }

@@ -9,7 +9,7 @@ namespace Octokit
     {
         public IssueEvent() { }
 
-        public IssueEvent(int id, Uri url, User actor, User assignee, Label label, EventInfoState @event, string commitId, DateTimeOffset createdAt, Issue issue)
+        public IssueEvent(int id, string url, User actor, User assignee, Label label, EventInfoState @event, string commitId, DateTimeOffset createdAt, Issue issue, string commitUrl)
         {
             Id = id;
             Url = url;
@@ -20,6 +20,7 @@ namespace Octokit
             CommitId = commitId;
             CreatedAt = createdAt;
             Issue = issue;
+            CommitUrl = commitUrl;
         }
 
         /// <summary>
@@ -30,7 +31,7 @@ namespace Octokit
         /// <summary>
         /// The URL for this issue/pull request event.
         /// </summary>
-        public Uri Url { get; protected set; }
+        public string Url { get; protected set; }
 
         /// <summary>
         /// Always the User that generated the event.
@@ -50,12 +51,17 @@ namespace Octokit
         /// <summary>
         /// Identifies the actual type of Event that occurred.
         /// </summary>
-        public EventInfoState Event { get; protected set; }
+        public StringEnum<EventInfoState> Event { get; protected set; }
 
         /// <summary>
         /// The String SHA of a commit that referenced this Issue.
         /// </summary>
         public string CommitId { get; protected set; }
+
+        /// <summary>
+        /// The commit URL of a commit that referenced this issue.
+        /// </summary>
+        public string CommitUrl { get; protected set; }
 
         /// <summary>
         /// Date the event occurred for the issue/pull request.
@@ -69,7 +75,7 @@ namespace Octokit
 
         internal string DebuggerDisplay
         {
-            get { return String.Format(CultureInfo.InvariantCulture, "Id: {0} CreatedAt: {1}", Id, CreatedAt); }
+            get { return string.Format(CultureInfo.InvariantCulture, "Id: {0} CreatedAt: {1}", Id, CreatedAt); }
         }
     }
 }

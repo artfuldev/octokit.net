@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
+using Octokit.Internal;
 
 namespace Octokit
 {
@@ -36,7 +37,7 @@ namespace Octokit
         /// <summary>
         /// The state of this deployment status.
         /// </summary>
-        public DeploymentState State { get; protected set; }
+        public StringEnum<DeploymentState> State { get; protected set; }
 
         /// <summary>
         /// The <seealso cref="User"/> that created this deployment status.
@@ -54,6 +55,18 @@ namespace Octokit
         /// as historical information for what happened in the deployment
         /// </summary>
         public string TargetUrl { get; protected set; }
+
+        /// <summary>
+        /// The target URL  of this deployment status. This URL should contain
+        /// output to keep the user updated while the task is running or serve as
+        /// historical information for what happened in the deployment
+        /// </summary>
+        public string LogUrl { get; protected set; }
+
+        /// <summary>
+        /// The URL for accessing your environment.
+        /// </summary>
+        public string EnvironmentUrl { get; protected set; }
 
         /// <summary>
         /// The date and time that the status was created.
@@ -74,16 +87,26 @@ namespace Octokit
         {
             get
             {
-                return String.Format(CultureInfo.InvariantCulture, "State: {0} UpdatedAt: {1}", State, UpdatedAt);
+                return string.Format(CultureInfo.InvariantCulture, "State: {0} UpdatedAt: {1}", State, UpdatedAt);
             }
         }
     }
 
     public enum DeploymentState
     {
+        [Parameter(Value = "pending")]
         Pending,
+
+        [Parameter(Value = "success")]
         Success,
+
+        [Parameter(Value = "error")]
         Error,
-        Failure
+
+        [Parameter(Value = "failure")]
+        Failure,
+
+        [Parameter(Value = "inactive")]
+        Inactive
     }
 }

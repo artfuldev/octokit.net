@@ -2,7 +2,9 @@
 using System.IO;
 using System.Linq;
 using System.Net;
+#if !NO_SERIALIZABLE
 using System.Runtime.Serialization.Formatters.Binary;
+#endif
 using Octokit.Internal;
 using Xunit;
 
@@ -18,8 +20,8 @@ namespace Octokit.Tests.Exceptions
                 var response = new Response(
                     (HttpStatusCode)422,
                     @"{""errors"":[{""code"":""custom"",""field"":""key"",""message"":""key is " +
-                    @"already in use"",""resource"":""PublicKey""}],""message"":""Validation Failed""}", 
-                    new Dictionary<string, string>(), 
+                    @"already in use"",""resource"":""PublicKey""}],""message"":""Validation Failed""}",
+                    new Dictionary<string, string>(),
                     "application/json"
                 );
 
@@ -39,7 +41,7 @@ namespace Octokit.Tests.Exceptions
                 Assert.Equal("Validation Failed", exception.Message);
             }
 
-#if !NETFX_CORE
+#if !NO_SERIALIZABLE
             [Fact]
             public void CanPopulateObjectFromSerializedData()
             {
@@ -49,7 +51,7 @@ namespace Octokit.Tests.Exceptions
                     @"already in use"",""resource"":""PublicKey""}],""message"":""Validation Failed""}",
                     new Dictionary<string, string>(),
                     "application/json");
-                
+
                 var exception = new ApiValidationException(response);
 
                 using (var stream = new MemoryStream())

@@ -1,5 +1,4 @@
-﻿using System;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Globalization;
 using Octokit.Internal;
 
@@ -55,7 +54,7 @@ namespace Octokit
         {
             get
             {
-                return String.Format(CultureInfo.InvariantCulture, "Sha: {0}", Sha);
+                return string.Format(CultureInfo.InvariantCulture, "Sha: {0}", Sha);
             }
         }
     }

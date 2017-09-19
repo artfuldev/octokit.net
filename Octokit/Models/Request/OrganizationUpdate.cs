@@ -1,5 +1,4 @@
-﻿using System;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Globalization;
 
 namespace Octokit
@@ -36,11 +35,19 @@ namespace Octokit
         /// </summary>
         public string Name { get; set; }
 
+        /// <summary>
+        /// Gets or sets the description of the organization.
+        /// </summary>
+        /// <value>
+        /// The description.
+        /// </value>
+        public string Description { get; set; }
+
         internal string DebuggerDisplay
         {
             get
             {
-                return String.Format(CultureInfo.InvariantCulture, "{0}", Name);
+                return string.Format(CultureInfo.InvariantCulture, "{0}", Name);
             }
         }
     }
